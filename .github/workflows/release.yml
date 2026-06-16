@@ -14,31 +14,27 @@ env:
 
 jobs:
   build-deb:
-    name: "Build .deb (Ubuntu)"
+    name: "Build .deb (Debian sid)"
     runs-on: ubuntu-24.04
+    container:
+      image: debian:sid
     steps:
       - uses: actions/checkout@v4
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          apt-get update
+          apt-get install -y --no-install-recommends \
+            build-essential \
+            pkg-config \
             libgtk-4-dev \
             libadwaita-1-dev \
-            libgraphene-1.0-dev
+            libgraphene-1.0-dev \
+            curl \
+            git
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: ${{ runner.os }}-cargo-
 
       - name: Install cargo-deb
         run: cargo install cargo-deb

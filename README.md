@@ -1,31 +1,25 @@
 # Anime Mod Manager
 
-面向 Genshin Impact / GIMI 的 3dmigoto 模组管理器，基于 Rust + GTK4 + libadwaita。从 GameBanana 在线浏览、筛选、一键下载安装，到本地模组启用 / 禁用管理，全部在统一窗口内完成。
+面向 Genshin Impact / GIMI 的 3dmigoto 模组管理器。在一个窗口内完成从发现模组到安装使用的全部流程。
 
 ## 软件截图
 
 | 在线浏览与筛选 | 模组详情与版本选择 |
-|---|---|
+| --- | --- |
 | [![浏览页](assets/remote-browse.png)](assets/remote-browse.png) | [![详情抽屉](assets/detail-drawer.png)](assets/detail-drawer.png) |
 | **下载队列** | **本地模组管理** |
 | [![下载页](assets/download-queue.png)](assets/download-queue.png) | [![本地页](assets/local-mods.png)](assets/local-mods.png) |
-| **设置** ||
+| **设置** | |
 | [![设置页](assets/settings.png)](assets/settings.png) | |
 
-### 主要功能
+### 能做什么
 
-- **在线浏览**：GameBanana 全部约 18000 个模组的本地缓存与分页浏览，支持分类 / 子类 / 年龄 / 下载状态四层筛选
-- **模组详情抽屉**：封面预览图、简介、标签、文件列表、版本切换，右侧滑出不影响浏览
-- **下载队列**：可配置并发数，支持暂停 / 继续 / 断点续传，下载状态持久化到 `.anime-mod.json`，重启后自动恢复
-- **安装引擎**：支持 `zip` / `7z` / `rar` 格式自动解压安装
-- **本地管理**：已安装模组列表，启用 / 禁用切换，批量操作
-- **GIMI Runtime 管理**：内置 runtime 版本检查与更新入口
-- **图片缓存**：封面图在网络请求层统一缓存，256 条目 / 300s TTL，翻页预加载相邻页
-
-项目包含两部分：
-
-- `anime-mod-manager`：核心库，负责 GameBanana API、模组元数据、下载调度、本地扫描与安装。
-- `mod-manager-demo`：基于 GTK4 + libadwaita 的桌面前端。
+- **浏览 GameBanana 模组**：按分类、子类、年龄、下载状态筛选，翻页浏览全部在线模组
+- **查看模组详情**：封面图、文字简介、标签、可选文件版本，右侧抽屉滑出，不影响当前浏览进度
+- **一键下载安装**：点下载即自动下载并安装到游戏模组目录
+- **管理下载队列**：同时下载多个模组，随时暂停或继续，重启后自动恢复未完成的任务
+- **管理本地模组**：查看已安装模组，启用或禁用，支持批量操作
+- **GIMI Runtime 更新**：检查 runtime 新版本并更新
 
 ## 当前特性
 

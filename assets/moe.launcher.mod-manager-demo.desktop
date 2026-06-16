@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Anime Mod Manager
+Comment=Browse, download and manage 3dmigoto mods from GameBanana
+Icon=moe.launcher.mod-manager-demo
+Exec=mod-manager-demo
+Categories=Game;Utility;GTK;
+Terminal=false
+StartupNotify=true

@@ -20,3 +20,18 @@ zip = "0.6"
 image = { version = "0.25", default-features = false, features = ["jpeg", "png", "gif", "webp", "bmp"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+
+[package.metadata.deb]
+maintainer = "Hu Sihan <Hu-Sihan@users.noreply.github.com>"
+section = "games"
+priority = "optional"
+depends = "libgtk-4-1, libadwaita-1-0"
+extended-description = """\
+Browse, download and manage 3dmigoto mods from GameBanana.
+Supports remote browsing, one-click install, local mod management, \
+and batch downloads with concurrent queue."""
+assets = [
+    "$auto",
+    { source = "../assets/moe.launcher.mod-manager-demo.desktop", dest = "/usr/share/applications/", mode = "644" },
+    { source = "../assets/moe.launcher.mod-manager-demo.svg", dest = "/usr/share/icons/hicolor/scalable/apps/", mode = "644" },
+]

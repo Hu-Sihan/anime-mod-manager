@@ -1,0 +1,21 @@
+[workspace]
+members = ["demo"]
+resolver = "2"
+
+[package]
+name = "anime-mod-manager"
+version = "0.1.0"
+description = "Standalone kernel for browsing, downloading and managing 3dmigoto mods from GameBanana"
+edition = "2021"
+license = "MIT"
+
+[dependencies]
+minreq = { version = "2", features = ["https"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+anyhow = "1"
+tracing = "0.1"
+tokio = { version = "1", features = ["rt", "time", "net", "macros"] }
+zip = "0.6"
+uuid = { version = "1", features = ["v4", "serde"] }

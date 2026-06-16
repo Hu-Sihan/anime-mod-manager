@@ -1,0 +1,726 @@
+/* ─── Sidebar (icon-only strip) ─────────────────────── */
+.sidebar {
+    background-color: @sidebar_bg_color;
+    border-right: 1px solid @borders;
+}
+
+.sidebar-tab {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 0;
+    border-radius: 8px;
+    margin: 2px 4px;
+}
+
+.sidebar-tab:checked {
+    background-color: @accent_bg_color;
+    color: @accent_fg_color;
+}
+
+.accounts-section {
+    border-top: 1px solid @borders;
+    padding: 8px 4px;
+}
+
+/* ─── Compact header ─────────────────────────────── */
+headerbar.compact-header,
+headerbar.compact-header windowhandle,
+headerbar.compact-header box {
+    min-height: 36px;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+headerbar.compact-header .window-controls {
+    margin-right: 4px;
+}
+
+headerbar.compact-header .window-control-button {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0;
+    margin: 0;
+    border: none;
+    border-radius: 999px;
+    background-image: none;
+    background-color: transparent;
+    box-shadow: none;
+}
+
+headerbar.compact-header .window-control-button:hover,
+headerbar.compact-header .window-control-button:hover:active {
+    background-image: none;
+    background-color: rgba(64, 64, 64, 0.9);
+    color: white;
+    box-shadow: none;
+}
+
+headerbar.compact-header .window-control-button.close-button:hover,
+headerbar.compact-header .window-control-button.close-button:hover:active {
+    background-image: none;
+    background-color: #e5484d;
+    color: white;
+    box-shadow: none;
+}
+
+headerbar.compact-header .window-control-button:backdrop,
+headerbar.compact-header .window-control-button:hover:backdrop,
+headerbar.compact-header .window-control-button:active,
+headerbar.compact-header .window-control-button:active:hover {
+    box-shadow: none;
+}
+
+headerbar.compact-header .window-control-button image {
+    color: inherit;
+}
+
+headerbar.compact-header label {
+    margin: 0;
+}
+
+/* ─── Search bar ────────────────────────────────────── */
+searchentry.search-bar,
+entry.search-bar {
+    min-height: 34px;
+    margin: 0 12px 8px 12px;
+    padding-top: 0;
+    padding-bottom: 0;
+    background-color: @card_bg_color;
+    border-radius: 999px;
+    border: 1px solid @borders;
+}
+
+searchentry.search-bar:focus-within,
+entry.search-bar:focus-within {
+    border-color: @accent_color;
+    box-shadow: 0 0 0 2px alpha(@accent_color, 0.3);
+}
+
+.filter-row {
+    margin: 0 12px 4px 12px;
+}
+
+.filter-row dropdown,
+.filter-row dropdown > button {
+    min-height: 26px;
+}
+
+.filter-row dropdown > button {
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.filter-row dropdown label {
+    font-size: 0.92em;
+}
+
+.filter-row dropdown arrow {
+    min-width: 14px;
+    min-height: 14px;
+}
+
+.compact-dropdown-current {
+    font-size: 0.92em;
+    margin: 0 2px;
+}
+
+.compact-dropdown-item {
+    min-height: 21px;
+    min-width: 75px;
+    margin: 0;
+    padding: 0 9px;
+}
+
+.compact-dropdown-item-label {
+    margin: 0;
+    font-size: 0.88em;
+}
+
+.compact-dropdown-item-check {
+    margin-left: 5px;
+}
+
+.filter-row dropdown popover contents {
+    padding: 6px 4px;
+    min-height: 0;
+}
+
+.filter-row dropdown popover scrolledwindow {
+    min-height: 0;
+}
+
+.filter-row dropdown popover * {
+    min-height: 0;
+}
+
+.filter-row dropdown popover listview {
+    margin: 0;
+    padding: 0;
+    min-height: 0;
+    overflow: hidden;
+    min-height: 0;
+}
+
+.filter-row dropdown popover scrolledwindow {
+    min-height: 0;
+}
+
+.filter-row dropdown popover listview row,
+.filter-row dropdown popover listview row.activatable {
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.filter-row dropdown popover listview row > * {
+    margin: 0;
+}
+
+.filter-row dropdown popover modelbutton {
+    min-width: 0;
+    min-height: 3.4mm;
+    padding: 0.5mm 1.2mm;
+    font-size: 0.9em;
+}
+
+.filter-row dropdown popover modelbutton check:dir(ltr),
+.filter-row dropdown popover modelbutton radio:dir(ltr) {
+    margin-right: 1mm;
+}
+
+.filter-row dropdown popover modelbutton check:dir(rtl),
+.filter-row dropdown popover modelbutton radio:dir(rtl) {
+    margin-left: 1mm;
+}
+
+/* ─── Mod card grid ──────────────────────────────────── */
+.mod-card-flow {
+    padding: 8px 12px;
+}
+
+/* Card with rounded corners and overflow hidden for the image */
+.mod-card {
+    border-radius: 14px;
+    background-color: @card_bg_color;
+    overflow: hidden;
+    min-width: 210px;
+    min-height: 140px;
+}
+
+.mod-card:hover {
+    box-shadow: 0 4px 20px alpha(black, 0.18);
+}
+
+.placeholder {
+    opacity: 0.2;
+}
+
+/* ─── Card bottom overlay ────────────────────────────── */
+.card-overlay {
+    background-image: linear-gradient(to top,
+        rgba(255,255,255,1) 0%,
+        rgba(255,255,255,1) 20%,
+        rgba(255,255,255,0.85) 40%,
+        transparent 70%);
+}
+
+.card-title {
+    font-weight: 800;
+    font-size: 0.92em;
+    color: #1a1a1a;
+}
+
+.card-author {
+    font-size: 0.78em;
+    color: #555555;
+    margin-top: 2px;
+}
+
+.card-tags {
+    margin-top: 6px;
+}
+
+/* ─── Tags ───────────────────────────────────────────── */
+.tag-character {
+    font-size: 0.72em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: alpha(@accent_color, 0.15);
+    color: @accent_color;
+    font-weight: 600;
+}
+
+.tag-r18 {
+    font-size: 0.72em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: alpha(@error_color, 0.18);
+    color: @error_color;
+    font-weight: 700;
+}
+
+.tag-installed {
+    font-size: 0.75em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-image: none;
+    background-color: rgba(255, 255, 255, 0.96);
+    border: 1px solid alpha(@success_color, 0.22);
+    color: @success_color;
+    font-weight: 700;
+}
+
+.tag-update {
+    font-size: 0.75em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: alpha(@warning_color, 0.15);
+    color: @warning_color;
+}
+
+.tag-disabled {
+    font-size: 0.75em;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background-color: @error_color;
+    color: white;
+    font-weight: 800;
+}
+
+.runtime-name {
+    font-size: 1.8em;
+    font-weight: 800;
+    letter-spacing: 0.02em;
+}
+
+.runtime-name-missing {
+    color: @error_color;
+}
+
+.runtime-current-version {
+    font-size: 1.12em;
+    font-weight: 700;
+}
+
+.runtime-version-arrow {
+    font-size: 1.12em;
+    color: alpha(@window_fg_color, 0.55);
+}
+
+.runtime-latest-version {
+    font-size: 1.12em;
+    font-weight: 800;
+    color: @error_color;
+}
+
+.runtime-note {
+    min-height: 20px;
+}
+
+.runtime-progress-bar {
+    min-width: 250px;
+}
+
+progressbar.runtime-progress-bar,
+progressbar.runtime-progress-bar trough,
+progressbar.runtime-progress-bar progress {
+    min-height: 10px;
+    border-radius: 999px;
+}
+
+.runtime-progress-label {
+    min-width: 44px;
+    font-weight: 700;
+}
+
+/* ─── Other pages ───────────────────────────────────── */
+.download-queue-shell {
+    margin-top: 4px;
+}
+
+.download-queue-card {
+    border-radius: 18px;
+    background-image: linear-gradient(90deg, #446175 0%, #19232d 100%);
+    border: 1px solid alpha(white, 0.28);
+    box-shadow: 0 10px 34px alpha(black, 0.22);
+}
+
+.download-queue-picture {
+    opacity: 1;
+}
+
+.download-queue-mask {
+    background-image: linear-gradient(180deg,
+        rgba(4, 7, 11, 0.16) 0%,
+        rgba(4, 7, 11, 0.07) 52%,
+        rgba(4, 7, 11, 0.18) 100%);
+}
+
+.download-queue-name {
+    color: white;
+    font-size: 1.5em;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    text-shadow: 0 2px 10px alpha(black, 0.42);
+}
+
+.download-queue-version {
+    color: alpha(white, 0.72);
+    font-size: 0.72em;
+    font-weight: 700;
+    text-shadow: 0 1px 6px alpha(black, 0.3);
+}
+
+.download-queue-percent {
+    color: white;
+    min-width: 112px;
+    font-size: 2.4em;
+    font-weight: 900;
+    letter-spacing: -0.03em;
+    text-shadow: 0 2px 10px alpha(black, 0.42);
+}
+
+.download-queue-status-icon {
+    color: white;
+    opacity: 0.96;
+}
+
+.detail-window {
+    background: transparent;
+}
+
+.detail-header {
+    background: transparent;
+}
+
+.detail-sidebar-shell {
+    background: transparent;
+}
+
+.detail-sidebar-scrim {
+    background: alpha(black, 0.22);
+}
+
+.detail-sidebar {
+    background: #ffffff;
+    border-left: 1px solid alpha(black, 0.08);
+    box-shadow: -18px 0 42px alpha(black, 0.16);
+}
+
+.detail-sidebar-title {
+    color: #1b2430;
+    font-size: 1.04em;
+    font-weight: 900;
+}
+
+.detail-sidebar-handle {
+    min-width: 51px;
+    min-height: 168px;
+    padding: 0;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    background-image: none;
+    box-shadow: none;
+    opacity: 0;
+    transition: opacity 180ms ease;
+}
+
+.detail-sidebar-handle:hover,
+.detail-sidebar-handle:focus,
+.detail-sidebar-handle:focus-visible {
+    opacity: 0.92;
+}
+
+.detail-sidebar-handle:hover {
+    background: transparent;
+}
+
+.detail-sidebar-handle-icon {
+    opacity: 0.96;
+}
+
+.detail-window-title {
+    font-weight: 800;
+}
+
+.detail-close-button {
+    border-radius: 999px;
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+}
+
+.detail-close-button:hover {
+    background: alpha(black, 0.08);
+}
+
+.detail-gallery {
+    border-radius: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+}
+
+.detail-gallery-tile {
+    border-radius: 18px;
+    background: #000000;
+    border: none;
+    overflow: hidden;
+}
+
+.detail-gallery-arrow {
+    min-width: 42px;
+    min-height: 42px;
+    padding: 0;
+    border-radius: 999px;
+    background: alpha(white, 0.84);
+    box-shadow: 0 8px 20px alpha(black, 0.12);
+}
+
+.detail-gallery-arrow:hover {
+    background: white;
+}
+
+.detail-gallery-counter {
+    color: #48576a;
+    font-size: 0.86em;
+    font-weight: 700;
+    background: alpha(white, 0.84);
+    border-radius: 999px;
+    padding: 4px 10px;
+}
+
+.detail-versions-panel {
+    background: @card_bg_color;
+    border: 1px solid @borders;
+    border-radius: 14px;
+    overflow: hidden;
+}
+
+.detail-versions-panel-overflow {
+    padding-top: 8px;
+    padding-bottom: 8px;
+}
+
+.detail-mod-name {
+    color: #18212d;
+    font-size: 1.58em;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+    line-height: 1.08;
+}
+
+.detail-mod-author {
+    color: #617182;
+    font-size: 0.98em;
+    font-weight: 700;
+    line-height: 1.05;
+}
+
+.detail-tag {
+    color: #245f8d;
+    background: #dfeeff;
+    border-radius: 999px;
+    padding: 6px 12px;
+    font-size: 0.82em;
+    font-weight: 800;
+}
+
+.detail-tag-r18 {
+    color: #a11a29;
+    background: #ffdfe3;
+}
+
+.detail-description {
+    color: #2b3643;
+    font-size: 1em;
+    line-height: 1.6;
+    padding: 16px 18px;
+}
+
+.detail-action-panel {
+    background: transparent;
+    border-top: none;
+    box-shadow: none;
+    padding: 0 18px 18px 18px;
+}
+
+.detail-action-row {
+    margin-top: 0;
+}
+
+.detail-download-button {
+    min-height: 38px;
+    padding: 6px 14px;
+    border-radius: 18px;
+    background-image: none;
+    box-shadow: 0 16px 36px alpha(black, 0.16);
+}
+
+.detail-download-button:hover {
+    box-shadow: 0 18px 40px alpha(black, 0.2);
+}
+
+.detail-download-title {
+    color: white;
+    font-size: 0.92em;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+}
+
+.detail-download-file {
+    color: alpha(white, 0.9);
+    font-size: 0.74em;
+    font-weight: 700;
+}
+
+.detail-download-button.detail-installed {
+    background-image: none;
+    background-color: #2fb344;
+    color: white;
+}
+
+.detail-download-button.detail-installed .detail-download-title {
+    color: white;
+}
+
+.detail-download-progress {
+    min-height: 38px;
+    border-radius: 18px;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    overflow: hidden;
+    box-shadow: 0 16px 36px alpha(black, 0.16);
+}
+
+.detail-progress-bar {
+    min-height: 38px;
+    background: transparent;
+}
+
+.detail-progress-title {
+    color: #1b2430;
+    font-size: 0.92em;
+    font-weight: 900;
+    letter-spacing: 0.01em;
+    text-shadow: 0 1px 2px alpha(white, 0.5);
+}
+
+.detail-progress-file {
+    color: alpha(#1b2430, 0.82);
+    font-size: 0.74em;
+    font-weight: 700;
+    text-shadow: 0 1px 2px alpha(white, 0.5);
+}
+
+.detail-progress-pct {
+    color: #1b2430;
+    font-size: 0.92em;
+    font-weight: 900;
+    text-shadow: 0 1px 2px alpha(white, 0.5);
+}
+
+
+.detail-version-button {
+    min-width: 38px;
+    min-height: 38px;
+    padding: 0;
+    border-radius: 18px;
+    background: #ffffff;
+    background-image: none;
+    box-shadow: 0 16px 36px alpha(black, 0.14);
+}
+
+.detail-version-button:hover {
+    background: #f6f8fb;
+    box-shadow: 0 18px 40px alpha(black, 0.18);
+}
+
+.detail-version-button image {
+    color: #1d2835;
+}
+
+.detail-status {
+    color: #6a7788;
+    font-size: 0.88em;
+    font-weight: 600;
+    margin-top: 8px;
+    padding-left: 4px;
+    padding-right: 4px;
+    text-shadow: 0 1px 2px alpha(white, 0.75);
+}
+
+.detail-version-popover {
+    background: transparent;
+}
+
+.detail-file-row {
+    padding: 0;
+    border-radius: 16px;
+}
+
+.detail-file-row > box {
+    padding: 12px 14px;
+}
+
+.detail-file-row:hover {
+    background: alpha(#4b8fd9, 0.08);
+}
+
+.detail-file-name {
+    color: #1d2835;
+    font-size: 1.06em;
+    font-weight: 800;
+}
+
+.detail-file-note {
+    color: #738396;
+    font-size: 0.86em;
+    font-weight: 600;
+}
+
+.detail-file-time {
+    color: #738396;
+    font-size: 0.82em;
+    font-weight: 700;
+}
+
+.detail-file-icon {
+    color: #2468c4;
+}
+
+.local-empty {
+    padding: 40px;
+}
+
+.local-card-shell {
+    margin: 0;
+}
+
+.local-card-selection {
+    border: 2px solid @accent_color;
+    border-radius: 16px;
+    background-color: alpha(@accent_color, 0.12);
+}
+
+.local-card-check {
+    color: @accent_fg_color;
+    background-color: @accent_color;
+    border-radius: 999px;
+    padding: 4px;
+}
+
+.selection-action-bar {
+    padding: 10px 14px;
+    border-radius: 18px;
+    box-shadow: 0 10px 28px alpha(black, 0.18);
+}
+
+.selection-count-label {
+    font-weight: 700;
+    min-width: 96px;
+}

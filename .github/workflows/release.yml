@@ -12,6 +12,10 @@ on:
 env:
   CARGO_TERM_COLOR: always
 
+permissions:
+  contents: write
+  actions: read
+
 jobs:
   build-deb:
     name: "Build .deb (Debian sid)"

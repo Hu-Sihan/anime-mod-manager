@@ -1,3 +1,4 @@
+use crate::tr;
 mod browse_page;
 mod card_frame;
 mod catalog_filter;
@@ -32,7 +33,7 @@ use gtk;
 
 use crate::config::{app_runtime_dir, AppSettings, GimiRuntimeSettings};
 use crate::perf;
-use anime_mod_manager::{game_ids, GameBananaClient, MetaManager, ModFileDownloader, ModManager};
+use anime_mod_manager::{game_ids, CdnClient, GameBananaClient, MetaManager, ModFileDownloader, ModManager};
 
 // ─── Shared app state ────────────────────────────────────────
 
@@ -47,6 +48,7 @@ pub struct AppState {
     pub settings: RefCell<AppSettings>,
     pub current_tab: RefCell<TabPage>,
     installed_listeners: RefCell<Vec<UiListener>>,
+    language_listeners: RefCell<Vec<UiListener>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -74,6 +76,29 @@ impl AppState {
     pub fn persist_settings(&self) {
         let _ = self.settings.borrow().save();
     }
+
+    pub fn subscribe_language_changed(&self, listener: impl Fn() + 'static) {
+        self.language_listeners
+            .borrow_mut()
+            .push(Rc::new(listener));
+    }
+
+    pub fn notify_language_changed(&self) {
+        let listeners = self.language_listeners.borrow().clone();
+        for listener in listeners {
+            listener();
+        }
+    }
+
+    /// Build a CdnClient from current settings, if CDN URL is configured.
+    pub fn get_cdn_client(self: &Rc<Self>) -> Option<CdnClient> {
+        self.settings
+            .borrow()
+            .network
+            .cdn_base_url
+            .as_deref()
+            .map(|url| CdnClient::new(url, game_ids::GENSHIN_IMPACT))
+    }
 }
 
 // ─── Main Window ─────────────────────────────────────────────
@@ -92,6 +117,14 @@ impl MainWindow {
             .build();
 
         let app_settings = AppSettings::load_or_default();
+        let sm = adw::StyleManager::default();
+        sm.set_color_scheme(if app_settings.ui.night_mode {
+            adw::ColorScheme::ForceDark
+        } else {
+            adw::ColorScheme::ForceLight
+        });
+        crate::i18n::switch_language(&app_settings.ui.language);
+        crate::apply_tag_light_theme(!app_settings.ui.night_mode);
         migrate_legacy_gimi_layout(&app_settings.core.gimi_runtime).ok();
         let mods_dir = app_settings.core.gimi_runtime.mods_directory();
         let meta_manager = MetaManager::new(ModManager::meta_roots_for(&mods_dir));
@@ -106,6 +139,7 @@ impl MainWindow {
             settings: RefCell::new(app_settings),
             current_tab: RefCell::new(TabPage::Browse),
             installed_listeners: RefCell::new(Vec::new()),
+            language_listeners: RefCell::new(Vec::new()),
         });
 
         state.manager.init().ok();
@@ -151,11 +185,84 @@ impl MainWindow {
             }
         });
 
-        content_stack.add_titled(&browse.container, Some("browse"), "浏览");
-        content_stack.add_titled(&download.container, Some("download"), "下载");
-        content_stack.add_titled(&local.container, Some("local"), "本地");
-        content_stack.add_titled(&settings.container, Some("settings"), "设置");
+        content_stack.add_titled(&browse.container, Some("browse"), &*tr!("sidebar.browse"));
+        content_stack.add_titled(&download.container, Some("download"), &*tr!("sidebar.download"));
+        content_stack.add_titled(&local.container, Some("local"), &*tr!("sidebar.local"));
+        content_stack.add_titled(&settings.container, Some("settings"), &*tr!("sidebar.settings"));
         content_stack.set_visible_child_name("browse");
+
+        // Store current pages for language-change rebuild (Option<Rc> keeps pages alive)
+        let cur_browse: Rc<RefCell<Option<Rc<BrowsePage>>>> = Rc::new(RefCell::new(Some(browse.clone())));
+        let cur_download: Rc<RefCell<Option<Rc<DownloadPage>>>> = Rc::new(RefCell::new(Some(download.clone())));
+        let cur_local: Rc<RefCell<Option<Rc<LocalPage>>>> = Rc::new(RefCell::new(Some(local.clone())));
+        let cur_settings: Rc<RefCell<Option<Rc<SettingsPage>>>> = Rc::new(RefCell::new(Some(settings.clone())));
+
+        let stack_for_lang = content_stack.clone();
+        let state_for_lang = state.clone();
+        let rebuilding = Rc::new(Cell::new(false));
+        let cb = cur_browse.clone();
+        let cd = cur_download.clone();
+        let cl = cur_local.clone();
+        let cs = cur_settings.clone();
+        state.subscribe_language_changed(move || {
+            if rebuilding.get() { return; }
+            rebuilding.set(true);
+
+            let visible = stack_for_lang
+                .visible_child_name()
+                .map(|n| n.to_string())
+                .unwrap_or_else(|| "browse".into());
+
+            // Remove old pages from stack (take() keeps ref alive until end of scope)
+            let _old_browse = cb.borrow_mut().take();
+            let _old_download = cd.borrow_mut().take();
+            let _old_local = cl.borrow_mut().take();
+            let _old_settings = cs.borrow_mut().take();
+
+            // Remove from widget tree (pages still alive via _old_* locals)
+            if let Some(ref p) = _old_browse { stack_for_lang.remove(&p.container); }
+            if let Some(ref p) = _old_download { stack_for_lang.remove(&p.container); }
+            if let Some(ref p) = _old_local { stack_for_lang.remove(&p.container); }
+            if let Some(ref p) = _old_settings { stack_for_lang.remove(&p.container); }
+
+            // Create new pages with fresh translations
+            let browse = Rc::new(BrowsePage::new(state_for_lang.clone()));
+            let download = Rc::new(DownloadPage::new(state_for_lang.clone()));
+            let local = Rc::new(LocalPage::new(state_for_lang.clone()));
+            let settings = Rc::new(SettingsPage::new(state_for_lang.clone()));
+
+            let bw = Rc::downgrade(&browse);
+            state_for_lang.subscribe_installed_changed(move || {
+                if let Some(b) = bw.upgrade() { b.refresh_installed_state(); }
+            });
+            let lw = Rc::downgrade(&local);
+            state_for_lang.subscribe_installed_changed(move || {
+                if let Some(l) = lw.upgrade() { l.refresh(); }
+            });
+            let dw = Rc::downgrade(&download);
+            state_for_lang.downloads.subscribe(move || {
+                if let Some(d) = dw.upgrade() { d.refresh(); }
+            });
+
+            stack_for_lang.add_titled(&browse.container, Some("browse"), &*tr!("sidebar.browse"));
+            stack_for_lang.add_titled(&download.container, Some("download"), &*tr!("sidebar.download"));
+            stack_for_lang.add_titled(&local.container, Some("local"), &*tr!("sidebar.local"));
+            stack_for_lang.add_titled(&settings.container, Some("settings"), &*tr!("sidebar.settings"));
+            stack_for_lang.set_visible_child_name(&visible);
+
+            // Refresh new pages (load data from state)
+            browse.refresh_installed_state();
+            local.refresh();
+            download.refresh();
+
+            // Store new pages for next rebuild
+            *cb.borrow_mut() = Some(browse);
+            *cd.borrow_mut() = Some(download);
+            *cl.borrow_mut() = Some(local);
+            *cs.borrow_mut() = Some(settings);
+
+            rebuilding.set(false);
+        });
 
         let previous_child = Rc::new(RefCell::new(String::from("browse")));
         let previous_child_for_notify = previous_child.clone();
@@ -194,8 +301,8 @@ impl MainWindow {
         sidebar_box.append(sidebar.widget());
 
         // Header bar
-        let minimize_btn = window_control_button("pan-down-symbolic", "最小化", "minimize-button");
-        let close_btn = window_control_button("window-close-symbolic", "关闭", "close-button");
+        let minimize_btn = window_control_button("pan-down-symbolic", &*tr!("app.minimize"), "minimize-button");
+        let close_btn = window_control_button("window-close-symbolic", &*tr!("app.close"), "close-button");
         let header_controls = gtk::Box::builder()
             .orientation(gtk::Orientation::Horizontal)
             .spacing(6)
@@ -206,7 +313,7 @@ impl MainWindow {
         header_controls.append(&close_btn);
 
         let header = adw::HeaderBar::builder()
-            .title_widget(&gtk::Label::new(Some("Anime Mod Manager")))
+            .title_widget(&gtk::Label::new(Some(&*tr!("app.header"))))
             .show_end_title_buttons(false)
             .css_classes(["flat", "compact-header"])
             .build();
@@ -229,7 +336,7 @@ impl MainWindow {
 
         let window = adw::ApplicationWindow::builder()
             .application(app)
-            .title("Anime Mod Manager — Demo")
+            .title(tr!("app.title"))
             .default_width(990)
             .default_height(600)
             .resizable(false)

@@ -1,3 +1,4 @@
+use crate::tr;
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::rc::Rc;
@@ -40,7 +41,7 @@ impl LocalPage {
             .build();
 
         let search_entry = gtk::SearchEntry::builder()
-            .placeholder_text("搜索本地模组...")
+            .placeholder_text(tr!("local.search_placeholder"))
             .css_classes(["search-bar"])
             .margin_start(12)
             .margin_end(12)
@@ -57,21 +58,21 @@ impl LocalPage {
             .margin_top(4)
             .build();
 
-        filter_row.append(&gtk::Label::new(Some("分类:")));
-        let cat_combo = gtk::DropDown::from_strings(&["全部"]);
+        filter_row.append(&gtk::Label::new(Some(&*tr!("local.filter_category"))));
+        let cat_combo = gtk::DropDown::from_strings(&[&*tr!("local.tag_all")]);
         filter_row.append(&cat_combo);
 
-        filter_row.append(&gtk::Label::new(Some("子类:")));
-        let sub_combo = gtk::DropDown::from_strings(&["全部"]);
+        filter_row.append(&gtk::Label::new(Some(&*tr!("local.filter_subcategory"))));
+        let sub_combo = gtk::DropDown::from_strings(&[&*tr!("local.tag_all")]);
         filter_row.append(&sub_combo);
 
-        filter_row.append(&gtk::Label::new(Some("年龄:")));
-        let age_combo = gtk::DropDown::from_strings(&["混合", "全年龄", "18+"]);
+        filter_row.append(&gtk::Label::new(Some(&*tr!("local.filter_age"))));
+        let age_combo = gtk::DropDown::from_strings(&[&*tr!("local.age_mixed"), &*tr!("local.age_sfw"), &*tr!("local.age_nsfw")]);
         age_combo.set_selected(0);
         filter_row.append(&age_combo);
 
-        filter_row.append(&gtk::Label::new(Some("状态:")));
-        let enabled_combo = gtk::DropDown::from_strings(&["全部", "已启用", "已禁用"]);
+        filter_row.append(&gtk::Label::new(Some(&*tr!("local.filter_status"))));
+        let enabled_combo = gtk::DropDown::from_strings(&[&*tr!("local.tag_all"), &*tr!("local.status_enabled"), &*tr!("local.status_disabled")]);
         enabled_combo.set_selected(0);
         filter_row.append(&enabled_combo);
 
@@ -124,7 +125,7 @@ impl LocalPage {
         );
         empty_box.append(
             &gtk::Label::builder()
-                .label("没有符合条件的本地模组")
+                .label(tr!("local.empty"))
                 .css_classes(["title-4", "dim-label"])
                 .build(),
         );
@@ -151,21 +152,21 @@ impl LocalPage {
         selection_bar.set_can_target(true);
 
         let selection_count_label = gtk::Label::builder()
-            .label("已选择 0 项")
+            .label(tr!("local.selected_count", 0))
             .css_classes(["selection-count-label"])
             .build();
         selection_bar.append(&selection_count_label);
 
         let delete_button = gtk::Button::builder()
-            .label("删除")
+            .label(tr!("local.delete"))
             .css_classes(["destructive-action"])
             .build();
         selection_bar.append(&delete_button);
 
-        let enable_button = gtk::Button::builder().label("启用").build();
+        let enable_button = gtk::Button::builder().label(tr!("local.enable")).build();
         selection_bar.append(&enable_button);
 
-        let disable_button = gtk::Button::builder().label("禁用").build();
+        let disable_button = gtk::Button::builder().label(tr!("local.disable")).build();
         selection_bar.append(&disable_button);
 
         overlay.add_overlay(&selection_bar);
@@ -176,7 +177,7 @@ impl LocalPage {
         let cat_filter = Rc::new(RefCell::new(0usize));
         let sub_filter = Rc::new(RefCell::new(0usize));
         let enabled_filter = Rc::new(RefCell::new(0u32));
-        let sub_map = Rc::new(RefCell::new(vec![vec!["全部".to_string()]]));
+        let sub_map = Rc::new(RefCell::new(vec![vec![tr!("local.tag_all")]]));
         let filter_data = Rc::new(RefCell::new(FilterData::build_from_cards(&[])));
         let installed_mods = Rc::new(RefCell::new(Vec::<InstalledMod>::new()));
         let selection = Rc::new(RefCell::new(HashSet::<String>::new()));
@@ -242,7 +243,7 @@ impl LocalPage {
                     .borrow()
                     .get(dropdown.selected() as usize)
                     .cloned()
-                    .unwrap_or_else(|| vec!["全部".to_string()]);
+                    .unwrap_or_else(|| vec![tr!("local.tag_all")]);
                 let refs: Vec<&str> = sub_items.iter().map(|value| value.as_str()).collect();
                 sub_combo.set_model(Some(&gtk::StringList::new(&refs)));
                 sub_combo.set_selected(0);
@@ -370,15 +371,15 @@ fn refresh_local_page(page: &LocalPageHandles) {
         .map(InstalledMod::to_mod_card)
         .collect();
     let filter_data = FilterData::build_from_cards(&cards);
-    let mut sub_map = vec![vec!["全部".to_string()]];
+    let mut sub_map = vec![vec![tr!("local.tag_all")]];
     for (index, category) in filter_data.categories.iter().enumerate() {
         let subs = filter_data
             .subcategories
             .get(category)
             .cloned()
-            .unwrap_or_else(|| vec!["全部".to_string()]);
+            .unwrap_or_else(|| vec![tr!("local.tag_all")]);
         while sub_map.len() <= index {
-            sub_map.push(vec!["全部".to_string()]);
+            sub_map.push(vec![tr!("local.tag_all")]);
         }
         sub_map[index] = subs;
     }
@@ -453,7 +454,7 @@ fn sync_local_subcategories(page: &LocalPageHandles) {
         .borrow()
         .get(selected_cat)
         .cloned()
-        .unwrap_or_else(|| vec!["全部".to_string()]);
+        .unwrap_or_else(|| vec![tr!("local.tag_all")]);
     let refs: Vec<&str> = sub_items.iter().map(|value| value.as_str()).collect();
     page.sub_combo.set_model(Some(&gtk::StringList::new(&refs)));
 
@@ -485,7 +486,7 @@ fn render_local_page(page: &LocalPageHandles) {
         .borrow()
         .get(selected_cat)
         .cloned()
-        .unwrap_or_else(|| vec!["全部".to_string()]);
+        .unwrap_or_else(|| vec![tr!("local.tag_all")]);
     let sub_name = if selected_sub > 0 && selected_sub < sub_items.len() {
         sub_items[selected_sub].clone()
     } else {
@@ -509,8 +510,8 @@ fn render_local_page(page: &LocalPageHandles) {
         .cloned()
         .collect();
 
-    page.state_label.set_text(&format!(
-        "本地共 {} 个模组，当前显示 {} 个",
+    page.state_label.set_text(&*tr!(
+        "local.summary",
         page.installed_mods.borrow().len(),
         filtered.len()
     ));
@@ -557,16 +558,16 @@ fn build_local_card_child(page: &LocalPageHandles, item: InstalledMod) -> gtk::F
         .build();
     badge_row.set_can_target(false);
     if !item.enabled {
-        let disabled_tag = gtk::Label::new(Some("已禁用"));
+        let disabled_tag = gtk::Label::new(Some(&*tr!("local.disabled_tag")));
         disabled_tag.set_css_classes(&["tag-disabled"]);
         badge_row.append(&disabled_tag);
     } else {
-        let enabled_tag = gtk::Label::new(Some("已启用"));
+        let enabled_tag = gtk::Label::new(Some(&*tr!("local.enabled_tag")));
         enabled_tag.set_css_classes(&["tag-installed"]);
         badge_row.append(&enabled_tag);
     }
     if item.update_available {
-        let update_tag = gtk::Label::new(Some("有更新"));
+        let update_tag = gtk::Label::new(Some(&*tr!("local.update_tag")));
         update_tag.set_css_classes(&["tag-update"]);
         badge_row.append(&update_tag);
     }
@@ -670,5 +671,5 @@ fn local_mod_matches(
 fn update_selection_bar(bar: &gtk::Box, count_label: &gtk::Label, selection: &HashSet<String>) {
     let count = selection.len();
     bar.set_visible(count > 0);
-    count_label.set_text(&format!("已选择 {} 项", count));
+    count_label.set_text(&*tr!("local.selected_count", count));
 }

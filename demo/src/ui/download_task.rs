@@ -1,3 +1,4 @@
+use crate::tr;
 use std::path::PathBuf;
 use std::sync::{
     atomic::{AtomicU8, Ordering},
@@ -164,7 +165,7 @@ impl DownloadTaskRequest {
             DownloadTaskPhase::Queued,
             0,
             DownloadTaskStatusCode::Queued,
-            "等待下载",
+            tr!("download_task.queued"),
         )
     }
 
@@ -173,7 +174,7 @@ impl DownloadTaskRequest {
             DownloadTaskPhase::Paused,
             progress,
             DownloadTaskStatusCode::Paused,
-            "已暂停",
+            tr!("download_task.paused"),
         )
     }
 }
@@ -199,7 +200,7 @@ impl DownloadTaskExecutionHandle {
             DownloadTaskPhase::Paused,
             self.current_status().progress,
             DownloadTaskStatusCode::Paused,
-            "正在暂停",
+            tr!("download_task.pausing"),
         )
     }
 
@@ -209,7 +210,7 @@ impl DownloadTaskExecutionHandle {
             DownloadTaskPhase::Paused,
             self.current_status().progress,
             DownloadTaskStatusCode::Removed,
-            "正在删除",
+            tr!("download_task.removing"),
         )
     }
 
@@ -219,7 +220,7 @@ impl DownloadTaskExecutionHandle {
             DownloadTaskPhase::Queued,
             self.current_status().progress,
             DownloadTaskStatusCode::Queued,
-            "等待续传",
+            tr!("download_task.wait_resume"),
         )
     }
 }
@@ -261,7 +262,7 @@ impl DownloadLifecycleTask {
                 DownloadTaskPhase::Queued,
                 0,
                 DownloadTaskStatusCode::Queued,
-                "等待下载",
+                tr!("download_task.queued"),
             ))),
             control: TaskControlHandle::new(),
         }
@@ -279,14 +280,14 @@ impl DownloadLifecycleTask {
             DownloadTaskRequest::Fresh(task) => {
                 self.manager
                     .prepare_download(&task.card, &task.file, &task.folder_name)
-                    .map_err(|err| format!("初始化元数据失败：{err}"))?;
+                    .map_err(|err| tr!("download_task.meta_init_failed", err))?;
                 if let Some(detail) = task.detail.as_ref() {
                     self.manager
                         .update_local_detail(
                             &task.folder_name,
                             LocalModDetail::from_remote_detail(detail),
                         )
-                        .map_err(|err| format!("写入模组详情失败：{err}"))?;
+                        .map_err(|err| tr!("download_task.detail_write_failed", err))?;
                 }
                 Ok(())
             }
@@ -318,7 +319,7 @@ impl DownloadLifecycleTask {
                 DownloadTaskPhase::Installing,
                 100,
                 DownloadTaskStatusCode::Installing,
-                "正在安装",
+                tr!("download_task.installing"),
             ),
         );
         self.manager
@@ -350,7 +351,7 @@ impl DownloadLifecycleTask {
                         DownloadTaskPhase::Completed,
                         100,
                         DownloadTaskStatusCode::Completed,
-                        "已安装",
+                        tr!("download_task.installed"),
                     ),
                 );
                 Ok(())
@@ -358,9 +359,9 @@ impl DownloadLifecycleTask {
             Err(err) => {
                 let removed_bad_archive = std::fs::remove_file(&artifact.archive_path).is_ok();
                 let message = if removed_bad_archive {
-                    format!("安装失败：{err}；已移除损坏压缩包，请重试下载")
+                    tr!("download_task.install_failed_cleanup", err)
                 } else {
-                    format!("安装失败：{err}")
+                    tr!("download_task.install_failed", err)
                 };
                 self.manager
                     .mark_download_failed(
@@ -414,10 +415,10 @@ impl DownloadLifecycleTask {
 
     fn controlled_stop_message(&self) -> String {
         match self.control_request() {
-            Some(TaskControlRequest::Remove) => "已移除".to_string(),
-            Some(TaskControlRequest::Pause) => "已暂停".to_string(),
-            Some(TaskControlRequest::Shutdown) => "等待续传".to_string(),
-            None => "已停止".to_string(),
+            Some(TaskControlRequest::Remove) => tr!("download_task.removed"),
+            Some(TaskControlRequest::Pause) => tr!("download_task.paused"),
+            Some(TaskControlRequest::Shutdown) => tr!("download_task.wait_resume"),
+            None => tr!("download_task.stopped"),
         }
     }
 
@@ -512,7 +513,7 @@ impl DownloadLifecycleTask {
     ) -> Result<PreparedInstallArtifact, String> {
         let target_dir = self.resolve_fresh_target_dir(task);
         if let Err(err) = std::fs::create_dir_all(&target_dir) {
-            let message = format!("无法创建模组目录：{err}");
+            let message = tr!("download_task.create_dir_failed", err);
             self.manager
                 .mark_download_failed(
                     &task.folder_name,
@@ -545,7 +546,7 @@ impl DownloadLifecycleTask {
                 DownloadTaskPhase::Queued,
                 0,
                 DownloadTaskStatusCode::Queued,
-                "等待下载",
+                tr!("download_task.queued"),
             ),
         );
 
@@ -564,7 +565,7 @@ impl DownloadLifecycleTask {
                     DownloadTaskPhase::Downloading,
                     0,
                     DownloadTaskStatusCode::ReusingArchive,
-                    "复用已下载文件",
+                    tr!("download_task.reuse_archive"),
                 ),
             );
         } else {
@@ -574,7 +575,7 @@ impl DownloadLifecycleTask {
                     DownloadTaskPhase::Downloading,
                     0,
                     DownloadTaskStatusCode::Preparing,
-                    "正在准备",
+                    tr!("download_task.preparing"),
                 ),
             );
         }
@@ -584,7 +585,7 @@ impl DownloadLifecycleTask {
                 DownloadTaskPhase::Downloading,
                 0,
                 DownloadTaskStatusCode::Downloading,
-                "正在下载",
+                tr!("download_task.downloading"),
             ),
         );
 
@@ -629,7 +630,7 @@ impl DownloadLifecycleTask {
                         DownloadTaskPhase::Downloading,
                         percent.min(100),
                         DownloadTaskStatusCode::Downloading,
-                        "正在下载",
+                        tr!("download_task.downloading"),
                     )),
                 );
             },
@@ -640,7 +641,7 @@ impl DownloadLifecycleTask {
                 return Err(self.controlled_stop_message());
             }
             Err(err) => {
-                let message = format!("下载失败：{err}");
+                let message = tr!("download_task.download_failed", err);
                 self.manager
                     .mark_download_failed(
                         &task.folder_name,
@@ -679,7 +680,7 @@ impl DownloadLifecycleTask {
                         DownloadTaskPhase::Queued,
                         0,
                         DownloadTaskStatusCode::RetryPending,
-                        format!("获取模组信息失败，{}/{} 次重试", attempt, MAX_RETRIES - 1),
+                        tr!("download_task.retry_info", attempt, MAX_RETRIES - 1),
                     ),
                 );
                 let mut waited = 0u64;
@@ -705,7 +706,7 @@ impl DownloadLifecycleTask {
                         .find(|file| file.id == task.file_id)
                         .cloned()
                     else {
-                        let message = "文件已不存在".to_string();
+                        let message = tr!("download_task.file_gone");
                         self.manager
                             .mark_download_failed(
                                 &task.folder_name,
@@ -720,10 +721,10 @@ impl DownloadLifecycleTask {
                         .preview_media
                         .as_ref()
                         .and_then(|media| media.images.first())
-                        .map(|image| format!("{}/{}", image.base_url, image.file_530));
+                        .map(|image| format!("{}/{}", image.base_url, image.file_530).to_string());
                     let target_dir = self.manager.entry_dir(&task.folder_name, true);
                     if let Err(err) = std::fs::create_dir_all(&target_dir) {
-                        let message = format!("无法创建模组目录：{err}");
+                        let message = tr!("download_task.create_dir_failed", err);
                         self.manager
                             .mark_download_failed(
                                 &task.folder_name,
@@ -772,7 +773,7 @@ impl DownloadLifecycleTask {
                                 DownloadTaskPhase::Downloading,
                                 resume_progress,
                                 DownloadTaskStatusCode::ReusingArchive,
-                                "复用已下载文件",
+                                tr!("download_task.reuse_archive"),
                             ),
                         );
                     } else {
@@ -782,7 +783,7 @@ impl DownloadLifecycleTask {
                                 DownloadTaskPhase::Downloading,
                                 0,
                                 DownloadTaskStatusCode::Preparing,
-                                "正在准备",
+                                tr!("download_task.preparing"),
                             ),
                         );
                     }
@@ -792,7 +793,7 @@ impl DownloadLifecycleTask {
                             DownloadTaskPhase::Downloading,
                             resume_progress,
                             DownloadTaskStatusCode::Downloading,
-                            "正在下载",
+                            tr!("download_task.downloading"),
                         ),
                     );
                     let manager = self.manager.clone();
@@ -836,7 +837,7 @@ impl DownloadLifecycleTask {
                                     DownloadTaskPhase::Downloading,
                                     percent.min(100),
                                     DownloadTaskStatusCode::Downloading,
-                                    "正在下载",
+                                    tr!("download_task.downloading"),
                                 )),
                             );
                         },
@@ -847,7 +848,7 @@ impl DownloadLifecycleTask {
                             return Err(self.controlled_stop_message());
                         }
                         Err(err) => {
-                            let message = format!("下载失败：{err}");
+                            let message = tr!("download_task.download_failed", err);
                             self.manager
                                 .mark_download_failed(
                                     &task.folder_name,
@@ -889,10 +890,10 @@ impl DownloadLifecycleTask {
                             .preview_media
                             .as_ref()
                             .and_then(|media| media.images.first())
-                            .map(|image| format!("{}/{}", image.base_url, image.file)),
+                            .map(|image| format!("{}/{}", image.base_url, image.file).to_string()),
                         is_r18: task.is_r18,
                         has_files: !detail.files.is_empty(),
-                        profile_url: format!("https://gamebanana.com/mods/{}", detail.id),
+                        profile_url: format!("https://gamebanana.com/mods/{}", detail.id).to_string(),
                         local_cover_path: None,
                     };
 
@@ -910,8 +911,8 @@ impl DownloadLifecycleTask {
         }
 
         let message = last_remote_error
-            .map(|detail| format!("获取模组信息失败，已重试3次：{detail}"))
-            .unwrap_or_else(|| "获取模组信息失败，已重试3次".to_string());
+            .map(|detail| format!("{}：{detail}", &*tr!("download_task.retry_exhausted")))
+            .unwrap_or_else(|| tr!("download_task.retry_exhausted"));
         self.manager
             .mark_download_failed(
                 &task.folder_name,

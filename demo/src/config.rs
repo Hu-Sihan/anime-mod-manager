@@ -38,6 +38,8 @@ pub struct UiSettings {
 #[serde(default)]
 pub struct NetworkSettings {
     pub concurrent_downloads: u32,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub cdn_base_url: Option<String>,
 }
 
 pub const UI_LANGUAGE_OPTIONS: &[&str] = &["zh-CN", "en-US", "ja-JP"];
@@ -84,6 +86,7 @@ impl Default for NetworkSettings {
     fn default() -> Self {
         Self {
             concurrent_downloads: 3,
+            cdn_base_url: Some("https://gamebanana-cdn.dicat.workers.dev".into()),
         }
     }
 }

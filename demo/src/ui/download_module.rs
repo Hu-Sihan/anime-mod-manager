@@ -1,3 +1,4 @@
+use crate::tr;
 use std::rc::Rc;
 
 use anime_mod_manager::{
@@ -128,7 +129,7 @@ impl DownloadModule {
             DownloadTaskPhase::Queued,
             0,
             DownloadTaskStatusCode::Queued,
-            "等待下载",
+            tr!("download_task.queued"),
             None,
         );
         self.scheduler
@@ -288,7 +289,7 @@ impl DownloadModule {
             DownloadTaskPhase::Queued,
             progress,
             DownloadTaskStatusCode::Queued,
-            "等待续传",
+            tr!("download_task.wait_resume"),
             None,
         );
         self.scheduler.insert_resume(
@@ -339,7 +340,7 @@ impl DownloadModule {
             DownloadTaskPhase::Paused,
             progress,
             DownloadTaskStatusCode::Paused,
-            "已暂停",
+            tr!("download_task.paused"),
             None,
         );
         self.scheduler.store_paused(
@@ -393,7 +394,7 @@ impl DownloadModule {
         let status_text = download
             .debug_detail
             .clone()
-            .unwrap_or_else(|| "下载失败".to_string());
+            .unwrap_or_else(|| tr!("download_task.download_failed"));
         self.apply_task_update(
             task_id,
             DownloadTaskPhase::Failed,
@@ -447,7 +448,7 @@ fn sanitize_archive_file_name(file_name: &str) -> String {
 }
 
 fn default_mod_folder_name(card: &ModCard) -> String {
-    format!("{}-{}", card.id, sanitize_path_component(&card.name))
+    format!("{}-{}", card.id, sanitize_path_component(&card.name).to_string())
 }
 
 fn sanitize_path_component(input: &str) -> String {

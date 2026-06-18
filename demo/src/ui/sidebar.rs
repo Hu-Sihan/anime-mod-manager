@@ -1,3 +1,4 @@
+use crate::tr;
 use std::rc::Rc;
 
 use adw::prelude::*;
@@ -8,6 +9,9 @@ use super::{AppState, TabPage};
 
 pub struct Sidebar {
     container: gtk::Box,
+    buttons: Vec<gtk::ToggleButton>,
+    logo: gtk::Image,
+    avatar: gtk::Image,
 }
 
 impl Sidebar {
@@ -19,13 +23,12 @@ impl Sidebar {
             .margin_bottom(6)
             .build();
 
-        // ─── Logo icon at top ─────────────────────────────────
         let logo = gtk::Image::builder()
             .icon_name("applications-games-symbolic")
             .pixel_size(24)
             .margin_top(4)
             .margin_bottom(8)
-            .tooltip_text("Anime Mod Manager")
+            .tooltip_text(&*tr!("app.logo_tooltip"))
             .build();
         container.append(&logo);
 
@@ -34,23 +37,17 @@ impl Sidebar {
         sep.set_margin_end(6);
         container.append(&sep);
 
-        // ─── Nav tab buttons (icon-only) ──────────────────────
-        let btn_local = icon_toggle("folder-symbolic", "本地");
-        let btn_download = icon_toggle("document-save-symbolic", "下载");
-        let btn_browse = icon_toggle("system-search-symbolic", "浏览");
-        let btn_settings = icon_toggle("emblem-system-symbolic", "设置");
+        let btn_local = icon_toggle("folder-symbolic", &*tr!("sidebar.local"));
+        let btn_download = icon_toggle("document-save-symbolic", &*tr!("sidebar.download"));
+        let btn_browse = icon_toggle("system-search-symbolic", &*tr!("sidebar.browse"));
+        let btn_settings = icon_toggle("emblem-system-symbolic", &*tr!("sidebar.settings"));
 
         btn_browse.set_active(true);
 
         let s1 = stack.clone();
         let state1 = state.clone();
         btn_local.connect_toggled(glib::clone!(
-            #[weak]
-            btn_download,
-            #[weak]
-            btn_browse,
-            #[weak]
-            btn_settings,
+            #[weak] btn_download, #[weak] btn_browse, #[weak] btn_settings,
             move |btn| {
                 if btn.is_active() {
                     btn_download.set_active(false);
@@ -65,12 +62,7 @@ impl Sidebar {
         let s2 = stack.clone();
         let state2 = state.clone();
         btn_download.connect_toggled(glib::clone!(
-            #[weak]
-            btn_local,
-            #[weak]
-            btn_browse,
-            #[weak]
-            btn_settings,
+            #[weak] btn_local, #[weak] btn_browse, #[weak] btn_settings,
             move |btn| {
                 if btn.is_active() {
                     btn_local.set_active(false);
@@ -85,12 +77,7 @@ impl Sidebar {
         let s3 = stack.clone();
         let state3 = state.clone();
         btn_browse.connect_toggled(glib::clone!(
-            #[weak]
-            btn_local,
-            #[weak]
-            btn_download,
-            #[weak]
-            btn_settings,
+            #[weak] btn_local, #[weak] btn_download, #[weak] btn_settings,
             move |btn| {
                 if btn.is_active() {
                     btn_local.set_active(false);
@@ -105,12 +92,7 @@ impl Sidebar {
         let s4 = stack.clone();
         let state4 = state.clone();
         btn_settings.connect_toggled(glib::clone!(
-            #[weak]
-            btn_local,
-            #[weak]
-            btn_download,
-            #[weak]
-            btn_browse,
+            #[weak] btn_local, #[weak] btn_download, #[weak] btn_browse,
             move |btn| {
                 if btn.is_active() {
                     btn_local.set_active(false);
@@ -126,14 +108,12 @@ impl Sidebar {
         container.append(&btn_download);
         container.append(&btn_browse);
 
-        // ─── Spacer ───────────────────────────────────────────
         let spacer = gtk::Box::new(gtk::Orientation::Vertical, 0);
         spacer.set_vexpand(true);
         container.append(&spacer);
 
         container.append(&btn_settings);
 
-        // ─── Account avatar at bottom ─────────────────────────
         let bottom_sep = gtk::Separator::new(gtk::Orientation::Horizontal);
         bottom_sep.set_margin_start(6);
         bottom_sep.set_margin_end(6);
@@ -143,12 +123,33 @@ impl Sidebar {
         let avatar = gtk::Image::builder()
             .icon_name("avatar-default-symbolic")
             .pixel_size(24)
-            .tooltip_text("GameBanana — 未登录")
+            .tooltip_text(&*tr!("sidebar.gb_account"))
             .margin_bottom(6)
             .build();
         container.append(&avatar);
 
-        Self { container }
+        let buttons = vec![btn_local, btn_download, btn_browse, btn_settings];
+
+        // Store widgets in Rc for language-change subscription
+        let sidebar = Self { container, buttons, logo, avatar };
+        let logo_w = sidebar.logo.clone();
+        let btns = sidebar.buttons.clone();
+        let av = sidebar.avatar.clone();
+        state.subscribe_language_changed(move || {
+            let labels: [&str; 4] = [
+                &*tr!("sidebar.local"),
+                &*tr!("sidebar.download"),
+                &*tr!("sidebar.browse"),
+                &*tr!("sidebar.settings"),
+            ];
+            for (btn, label) in btns.iter().zip(labels.iter()) {
+                btn.set_tooltip_text(Some(label));
+            }
+            logo_w.set_tooltip_text(Some(&*tr!("app.logo_tooltip")));
+            av.set_tooltip_text(Some(&*tr!("sidebar.gb_account")));
+        });
+
+        sidebar
     }
 
     pub fn widget(&self) -> &gtk::Box {

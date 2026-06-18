@@ -5,6 +5,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
 
+use crate::cdn_client::CdnClient;
 use crate::gamebanana::GameBananaClient;
 use crate::models::ModCard;
 
@@ -73,6 +74,69 @@ impl MetadataCache {
         let local_id = self.cards.first()?.id;
         eprintln!("IS_STALE remote_first_id={remote_id} local_first_id={local_id}");
         Some(remote_id != local_id)
+    }
+
+    /// Check if CDN has newer data than our local cache.
+    /// Returns true if CDN manifest differs from local.
+    pub fn is_stale_via_cdn(&self, cdn: &CdnClient) -> bool {
+        match cdn.get_manifest() {
+            Ok(Some(manifest)) => {
+                let local_id = self.cards.first().map(|c| c.id).unwrap_or(0);
+                manifest.first_mod_id != local_id
+            }
+            _ => true, // CDN unreachable → treat as stale (fall back to GB)
+        }
+    }
+
+    /// Sync catalog from CDN — single download + save.
+    pub fn sync_from_cdn(
+        cdn: &CdnClient,
+        dir: impl AsRef<Path>,
+        existing: Option<&MetadataCache>,
+    ) -> anyhow::Result<Self> {
+        let path = dir.as_ref().join("cards.json");
+        fs::create_dir_all(dir.as_ref()).ok();
+
+        let cards = if let Some(ex) = existing {
+            // Incremental: only fetch cards newer than our first card
+            let since_id = ex.cards.first().map(|c| c.id).unwrap_or(0);
+            match cdn.get_catalog_since(since_id) {
+                Ok(new) if !new.is_empty() => {
+                    let mut merged = new;
+                    merged.extend(ex.cards.clone());
+                    merged
+                }
+                _ => {
+                    // Fall back to full download
+                    cdn.get_catalog()
+                        .map_err(|e| anyhow::anyhow!("CDN catalog: {}", e))?
+                }
+            }
+        } else {
+            // No local cache → full download
+            cdn.get_catalog()
+                .map_err(|e| anyhow::anyhow!("CDN catalog: {}", e))?
+        };
+
+        let manifest = CacheManifest {
+            total_cards: cards.len(),
+            synced_at: SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs(),
+        };
+
+        let cache_file = CacheFile {
+            manifest: manifest.clone(),
+            cards: cards.clone(),
+        };
+        fs::write(&path, serde_json::to_string_pretty(&cache_file)?)?;
+
+        Ok(Self {
+            cards,
+            manifest,
+            _path: path,
+        })
     }
 
     /// Download metadata from GameBanana, incrementally updating if `existing` is provided.

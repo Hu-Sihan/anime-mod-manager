@@ -8,6 +8,7 @@ license = "MIT"
 anime-mod-manager = { path = ".." }
 
 gtk = { version = "0.9", features = ["v4_16"], package = "gtk4" }
+rust-i18n = "3"
 adw = { version = "0.7", features = ["v1_5"], package = "libadwaita" }
 gdk-pixbuf = { version = "0.20", package = "gdk-pixbuf" }
 open = "5"

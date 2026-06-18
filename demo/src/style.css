@@ -220,21 +220,21 @@ entry.search-bar:focus-within {
 /* ─── Card bottom overlay ────────────────────────────── */
 .card-overlay {
     background-image: linear-gradient(to top,
-        rgba(255,255,255,1) 0%,
-        rgba(255,255,255,1) 20%,
-        rgba(255,255,255,0.85) 40%,
+        @window_bg_color 0%,
+        @window_bg_color 20%,
+        alpha(@window_bg_color, 0.82) 40%,
         transparent 70%);
 }
 
 .card-title {
     font-weight: 800;
     font-size: 0.92em;
-    color: #1a1a1a;
+    color: @window_fg_color;
 }
 
 .card-author {
     font-size: 0.78em;
-    color: #555555;
+    color: alpha(@window_fg_color, 0.65);
     margin-top: 2px;
 }
 
@@ -266,9 +266,9 @@ entry.search-bar:focus-within {
     padding: 2px 8px;
     border-radius: 999px;
     background-image: none;
-    background-color: rgba(255, 255, 255, 0.96);
-    border: 1px solid alpha(@success_color, 0.22);
-    color: @success_color;
+    background-color: @success_color;
+    color: white;
+    border: 1px solid alpha(@success_color, 0.3);
     font-weight: 700;
 }
 
@@ -404,13 +404,13 @@ progressbar.runtime-progress-bar progress {
 }
 
 .detail-sidebar {
-    background: #ffffff;
-    border-left: 1px solid alpha(black, 0.08);
+    background: @window_bg_color;
+    border-left: 1px solid @borders;
     box-shadow: -18px 0 42px alpha(black, 0.16);
 }
 
 .detail-sidebar-title {
-    color: #1b2430;
+    color: @window_fg_color;
     font-size: 1.04em;
     font-weight: 900;
 }
@@ -485,10 +485,10 @@ progressbar.runtime-progress-bar progress {
 }
 
 .detail-gallery-counter {
-    color: #48576a;
+    color: @window_fg_color;
     font-size: 0.86em;
     font-weight: 700;
-    background: alpha(white, 0.84);
+    background: alpha(@card_bg_color, 0.92);
     border-radius: 999px;
     padding: 4px 10px;
 }
@@ -506,7 +506,7 @@ progressbar.runtime-progress-bar progress {
 }
 
 .detail-mod-name {
-    color: #18212d;
+    color: @window_fg_color;
     font-size: 1.58em;
     font-weight: 900;
     letter-spacing: -0.02em;
@@ -514,15 +514,15 @@ progressbar.runtime-progress-bar progress {
 }
 
 .detail-mod-author {
-    color: #617182;
+    color: alpha(@window_fg_color, 0.55);
     font-size: 0.98em;
     font-weight: 700;
     line-height: 1.05;
 }
 
 .detail-tag {
-    color: #245f8d;
-    background: #dfeeff;
+    color: @accent_color;
+    background: alpha(@accent_color, 0.12);
     border-radius: 999px;
     padding: 6px 12px;
     font-size: 0.82em;
@@ -530,12 +530,12 @@ progressbar.runtime-progress-bar progress {
 }
 
 .detail-tag-r18 {
-    color: #a11a29;
-    background: #ffdfe3;
+    color: @error_color;
+    background: alpha(@error_color, 0.12);
 }
 
 .detail-description {
-    color: #2b3643;
+    color: @window_fg_color;
     font-size: 1em;
     line-height: 1.6;
     padding: 16px 18px;
@@ -603,25 +603,22 @@ progressbar.runtime-progress-bar progress {
 }
 
 .detail-progress-title {
-    color: #1b2430;
+    color: @window_fg_color;
     font-size: 0.92em;
     font-weight: 900;
     letter-spacing: 0.01em;
-    text-shadow: 0 1px 2px alpha(white, 0.5);
 }
 
 .detail-progress-file {
-    color: alpha(#1b2430, 0.82);
+    color: alpha(@window_fg_color, 0.72);
     font-size: 0.74em;
     font-weight: 700;
-    text-shadow: 0 1px 2px alpha(white, 0.5);
 }
 
 .detail-progress-pct {
-    color: #1b2430;
+    color: @window_fg_color;
     font-size: 0.92em;
     font-weight: 900;
-    text-shadow: 0 1px 2px alpha(white, 0.5);
 }
 
 
@@ -630,28 +627,27 @@ progressbar.runtime-progress-bar progress {
     min-height: 38px;
     padding: 0;
     border-radius: 18px;
-    background: #ffffff;
+    background: @card_bg_color;
     background-image: none;
     box-shadow: 0 16px 36px alpha(black, 0.14);
 }
 
 .detail-version-button:hover {
-    background: #f6f8fb;
+    background: alpha(@card_bg_color, 0.7);
     box-shadow: 0 18px 40px alpha(black, 0.18);
 }
 
 .detail-version-button image {
-    color: #1d2835;
+    color: @window_fg_color;
 }
 
 .detail-status {
-    color: #6a7788;
+    color: alpha(@window_fg_color, 0.55);
     font-size: 0.88em;
     font-weight: 600;
     margin-top: 8px;
     padding-left: 4px;
     padding-right: 4px;
-    text-shadow: 0 1px 2px alpha(white, 0.75);
 }
 
 .detail-version-popover {
@@ -672,25 +668,25 @@ progressbar.runtime-progress-bar progress {
 }
 
 .detail-file-name {
-    color: #1d2835;
+    color: @window_fg_color;
     font-size: 1.06em;
     font-weight: 800;
 }
 
 .detail-file-note {
-    color: #738396;
+    color: alpha(@window_fg_color, 0.55);
     font-size: 0.86em;
     font-weight: 600;
 }
 
 .detail-file-time {
-    color: #738396;
+    color: alpha(@window_fg_color, 0.55);
     font-size: 0.82em;
     font-weight: 700;
 }
 
 .detail-file-icon {
-    color: #2468c4;
+    color: @accent_color;
 }
 
 .local-empty {

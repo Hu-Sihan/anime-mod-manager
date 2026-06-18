@@ -1,4 +1,5 @@
 pub mod cache;
+pub mod cdn_client;
 pub mod filter_data;
 pub mod gamebanana;
 pub mod img_cache;
@@ -7,6 +8,7 @@ pub mod meta_manager;
 pub mod mod_file_downloader;
 pub mod models;
 
+pub use cdn_client::CdnClient;
 pub use gamebanana::GameBananaClient;
 pub use manager::ModManager;
 pub use meta_manager::MetaManager;

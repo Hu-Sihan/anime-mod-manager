@@ -1,3 +1,4 @@
+use crate::tr;
 use std::cell::RefCell;
 use std::collections::{HashSet, VecDeque};
 use std::rc::Rc;
@@ -64,7 +65,7 @@ impl BrowsePage {
         overlay.add_overlay(detail_drawer.revealer());
 
         let search_entry = gtk::SearchEntry::builder()
-            .placeholder_text("搜索模组...")
+            .placeholder_text(tr!("browse.search_placeholder"))
             .css_classes(["search-bar"])
             .margin_start(12)
             .margin_end(12)
@@ -79,21 +80,21 @@ impl BrowsePage {
             .margin_end(12)
             .margin_top(4)
             .build();
-        filter_row.append(&gtk::Label::new(Some("分类:")));
+        filter_row.append(&gtk::Label::new(Some(&*tr!("browse.filter_category"))));
         let cat_combo =
-            gtk::DropDown::from_strings(&["全部", "皮肤", "角色", "武器", "UI", "工具", "其他"]);
+            gtk::DropDown::from_strings(&[&*tr!("browse.tag_all"), "皮肤", "角色", "武器", "UI", "工具", "其他"]);
         cat_combo.set_selected(0);
         filter_row.append(&cat_combo);
-        filter_row.append(&gtk::Label::new(Some("子类:")));
-        let sub_combo = gtk::DropDown::from_strings(&["全部", ""]);
+        filter_row.append(&gtk::Label::new(Some(&*tr!("browse.filter_subcategory"))));
+        let sub_combo = gtk::DropDown::from_strings(&[&*tr!("browse.tag_all"), ""]);
         sub_combo.set_selected(0);
         filter_row.append(&sub_combo);
-        filter_row.append(&gtk::Label::new(Some("年龄:")));
-        let age_combo = gtk::DropDown::from_strings(&["混合", "全年龄", "18+"]);
+        filter_row.append(&gtk::Label::new(Some(&*tr!("browse.filter_age"))));
+        let age_combo = gtk::DropDown::from_strings(&[&*tr!("browse.age_mixed"), &*tr!("browse.age_sfw"), &*tr!("browse.age_nsfw")]);
         age_combo.set_selected(0);
         filter_row.append(&age_combo);
-        filter_row.append(&gtk::Label::new(Some("下载:")));
-        let downloaded_combo = gtk::DropDown::from_strings(&["全部", "已下载", "未下载"]);
+        filter_row.append(&gtk::Label::new(Some(&*tr!("browse.filter_downloaded"))));
+        let downloaded_combo = gtk::DropDown::from_strings(&[&*tr!("browse.tag_all"), &*tr!("browse.downloaded_yes"), &*tr!("browse.downloaded_no")]);
         downloaded_combo.set_selected(0);
         filter_row.append(&downloaded_combo);
         apply_compact_dropdown_factory(&cat_combo);
@@ -145,7 +146,7 @@ impl BrowsePage {
                 .spinning(true)
                 .build(),
         );
-        let sync_label = gtk::Label::new(Some("检查本地数据库..."));
+        let sync_label = gtk::Label::new(Some(&*tr!("browse.sync_checking")));
         sync_label.set_margin_top(12);
         sync_overlay.append(&sync_label);
         let main_stack = gtk::Stack::new();
@@ -179,8 +180,13 @@ impl BrowsePage {
         let installed_ids = Rc::new(RefCell::new(load_installed_ids(&state)));
         let keep = Rc::new(RefCell::new(None::<gtk::glib::SourceId>));
         let sub_map: Rc<RefCell<Vec<Vec<String>>>> =
-            Rc::new(RefCell::new(vec![vec!["全部".to_string()]]));
-        let filter_data: Rc<RefCell<Option<FilterData>>> = Rc::new(RefCell::new(None));
+            Rc::new(RefCell::new(vec![vec![tr!("browse.tag_all")]]));
+        let filter_data: Rc<RefCell<Option<FilterData>>> = {
+            let cache_dir = std::env::current_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."))
+                .join("cache");
+            Rc::new(RefCell::new(FilterData::load(cache_dir.join("filters.json"))))
+        };
         let cancel_token: Rc<RefCell<Arc<AtomicBool>>> =
             Rc::new(RefCell::new(Arc::new(AtomicBool::new(false))));
         let this = Self {
@@ -235,7 +241,7 @@ impl BrowsePage {
                         .subcategories
                         .get(&cat)
                         .cloned()
-                        .unwrap_or_else(|| vec!["全部".to_string()]);
+                        .unwrap_or_else(|| vec![tr!("browse.tag_all")]);
                     let query = sq.borrow().clone();
                     let filtered = filter_cards(
                         cache,
@@ -371,42 +377,65 @@ impl BrowsePage {
             let fdir = cache_dir.clone();
             let (tx_p, rx_p) = std::sync::mpsc::channel::<String>();
             let (tx_c, rx_c) = std::sync::mpsc::channel::<MetadataCache>();
+            let cdn_for_sync = state_for_sync.get_cdn_client();
             std::thread::spawn(move || {
-                let client = GameBananaClient::new(8552);
-                let _ = tx_p.send("检查中...".into());
-                let ex = MetadataCache::load(&cache_dir);
-                if ex
-                    .as_ref()
-                    .map_or(false, |c| c.is_stale(&client).map_or(true, |s| !s))
-                {
-                    let c = ex.unwrap();
-                    let _ = tx_p.send(format!("本地 {} 个模组", c.len()));
-                    let _ = tx_c.send(c);
-                } else {
-                    let _ = tx_p.send("下载中...".into());
-                    let tx = tx_p.clone();
-                    let cl = GameBananaClient::new(8552);
-                    let cd = cache_dir.clone();
-                    let tx3 = tx_p.clone();
-                    match MetadataCache::sync(
-                        &cl,
-                        &cd,
-                        false,
-                        ex.as_ref(),
-                        &|d, t| {
-                            let _ = tx.send(format!("{} / {}", d, t));
-                        },
-                        Some(&|info: String| {
-                            let _ = tx3.send(info);
-                        }),
-                    ) {
+                let _ = tx_p.send(tr!("browse.sync_checking_short"));
+                let mut ex = MetadataCache::load(&cache_dir);
+                let cdn = cdn_for_sync;
+
+                // Try CDN first
+                if let Some(ref cdn) = cdn {
+                    let stale = ex.as_ref()
+                        .map_or(true, |c| c.is_stale_via_cdn(cdn));
+                    if !stale {
+                        let c = ex.take().unwrap();
+                        let _ = tx_p.send(tr!("browse.sync_cached", c.len().to_string()));
+                        let _ = tx_c.send(c);
+                        return;
+                    }
+
+                    let _ = tx_p.send(tr!("browse.sync_from_cdn"));
+                    match MetadataCache::sync_from_cdn(cdn, &cache_dir, ex.as_ref()) {
                         Ok(c) => {
-                            let _ = tx_p.send("完成".into());
+                            let _ = tx_p.send(tr!("browse.sync_cdn_done"));
                             let _ = tx_c.send(c);
+                            return;
                         }
-                        Err(_) => {
-                            let _ = tx_p.send("失败".into());
+                        Err(e) => {
+                            let _ = tx_p.send(tr!("browse.sync_cdn_fail", e).to_string());
+                            // Keep error visible briefly so user can see the reason
+                            std::thread::sleep(std::time::Duration::from_millis(1500));
                         }
+                    }
+                }
+
+                // Fall back to direct GameBanana
+                let client = GameBananaClient::new(8552);
+                let stale = ex.as_ref()
+                    .map_or(true, |c| c.is_stale(&client).map_or(true, |s| !s));
+                if ex.as_ref().map_or(false, |c| !stale) {
+                    let c = ex.take().unwrap();
+                    let _ = tx_p.send(tr!("browse.sync_cached", c.len().to_string()));
+                    let _ = tx_c.send(c);
+                    return;
+                }
+
+                let _ = tx_p.send(tr!("browse.sync_from_gb"));
+                let tx = tx_p.clone();
+                let cl = GameBananaClient::new(8552);
+                let cd = cache_dir.clone();
+                let tx3 = tx_p.clone();
+                match MetadataCache::sync(
+                    &cl, &cd, false, ex.as_ref(),
+                    &|d, t| { let _ = tx.send(format!("{} / {}", d, t).to_string()); },
+                    Some(&|info: String| { let _ = tx3.send(info); }),
+                ) {
+                    Ok(c) => {
+                        let _ = tx_p.send(tr!("browse.sync_done"));
+                        let _ = tx_c.send(c);
+                    }
+                    Err(_) => {
+                        let _ = tx_p.send(tr!("browse.sync_fail"));
                     }
                 }
             });
@@ -427,15 +456,15 @@ impl BrowsePage {
                             );
                             fd.save(fdir.join("filters.json"));
                             let start = perf::now();
-                            let mut map = vec![vec!["全部".to_string()]];
+                            let mut map = vec![vec![tr!("browse.tag_all")]];
                             for (i, cat) in fd.categories.iter().enumerate() {
                                 let subs = fd
                                     .subcategories
                                     .get(cat)
                                     .cloned()
-                                    .unwrap_or_else(|| vec!["全部".to_string()]);
+                                    .unwrap_or_else(|| vec![tr!("browse.tag_all")]);
                                 while map.len() <= i {
-                                    map.push(vec!["全部".to_string()]);
+                                    map.push(vec![tr!("browse.tag_all")]);
                                 }
                                 map[i] = subs;
                             }
@@ -467,7 +496,7 @@ impl BrowsePage {
                                 .subcategories
                                 .get(&cat)
                                 .cloned()
-                                .unwrap_or_else(|| vec!["全部".to_string()]);
+                                .unwrap_or_else(|| vec![tr!("browse.tag_all")]);
                             let query = sq2.borrow().clone();
                             let filtered = filter_cards(
                                 cache,
@@ -564,7 +593,7 @@ impl BrowsePage {
                         .subcategories
                         .get(&cat)
                         .cloned()
-                        .unwrap_or_else(|| vec!["全部".to_string()]);
+                        .unwrap_or_else(|| vec![tr!("browse.tag_all")]);
                     let query = sq.borrow().clone();
                     let filtered = filter_cards(
                         cache,
@@ -624,7 +653,7 @@ impl BrowsePage {
                 .subcategories
                 .get(&cat)
                 .cloned()
-                .unwrap_or_else(|| vec!["全部".to_string()]);
+                .unwrap_or_else(|| vec![tr!("browse.tag_all")]);
             let query = self.search_query.borrow().clone();
             let filtered = filter_cards(
                 cache,
@@ -801,7 +830,7 @@ fn upd_nav(
     let page = offset / PAGE_STEP + 1;
     prev.set_sensitive(offset > 0);
     next.set_sensitive(offset < max_off);
-    label.set_text(&format!("{}/{}", page, total_pages));
+    label.set_text(&format!("{}/{}", page, total_pages).to_string());
 }
 
 fn build_browse_card(
@@ -812,7 +841,7 @@ fn build_browse_card(
     cancel: Arc<AtomicBool>,
 ) -> gtk::Overlay {
     let _perf =
-        perf::ScopeTimer::with_threshold(format!("BrowsePage::build_browse_card {}", card.id), 2);
+        perf::ScopeTimer::with_threshold(format!("BrowsePage::build_browse_card {}", card.id).to_string(), 2);
     let widget = ModCardWidget::new_with_cancel(card, cancel);
     widget.activate();
 
@@ -829,7 +858,7 @@ fn build_browse_card(
 
     if downloaded {
         let tag = gtk::Label::builder()
-            .label("已下载")
+            .label(tr!("browse.downloaded_badge"))
             .css_classes(["tag-installed"])
             .halign(gtk::Align::Start)
             .valign(gtk::Align::Start)

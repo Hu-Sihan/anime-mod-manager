@@ -1,3 +1,4 @@
+use crate::tr;
 use std::cell::{Cell, RefCell};
 use std::cmp::Reverse;
 use std::rc::Rc;
@@ -116,7 +117,7 @@ impl ModDetailDrawer {
             .margin_end(18)
             .build();
         let title_label = gtk::Label::builder()
-            .label("模组详情")
+            .label(tr!("detail.title"))
             .halign(gtk::Align::Start)
             .hexpand(true)
             .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -184,7 +185,7 @@ impl ModDetailDrawer {
         }
 
         let gallery_empty_label = gtk::Label::builder()
-            .label("暂无预览图")
+            .label(tr!("detail.no_preview"))
             .css_classes(["title-4", "dim-label"])
             .halign(gtk::Align::Center)
             .valign(gtk::Align::Center)
@@ -196,7 +197,7 @@ impl ModDetailDrawer {
             gallery_arrow_button("go-previous-symbolic", gtk::Align::Start, 8);
         let gallery_next_button = gallery_arrow_button("go-next-symbolic", gtk::Align::End, 8);
         let gallery_counter_label = gtk::Label::builder()
-            .label("0 / 0")
+            .label(tr!("detail.gallery_counter", 0, 0).to_string())
             .css_classes(["detail-gallery-counter"])
             .halign(gtk::Align::Center)
             .valign(gtk::Align::End)
@@ -213,7 +214,7 @@ impl ModDetailDrawer {
             .build();
 
         let name_label = gtk::Label::builder()
-            .label("选择一个模组")
+            .label(tr!("detail.select_mod"))
             .halign(gtk::Align::Start)
             .wrap(true)
             .css_classes(["detail-mod-name"])
@@ -237,7 +238,7 @@ impl ModDetailDrawer {
         body.append(&meta_box);
 
         let description_label = gtk::Label::builder()
-            .label("点击模组卡片后会在这里显示简介。")
+            .label(tr!("detail.default_description"))
             .halign(gtk::Align::Fill)
             .valign(gtk::Align::Start)
             .wrap(true)
@@ -301,14 +302,14 @@ impl ModDetailDrawer {
             .build();
         download_button_content.append(
             &gtk::Label::builder()
-                .label("下载")
+                .label(tr!("detail.download"))
                 .halign(gtk::Align::Center)
                 .justify(gtk::Justification::Center)
                 .css_classes(["detail-download-title"])
                 .build(),
         );
         let download_file_label = gtk::Label::builder()
-            .label("正在加载文件列表...")
+            .label(tr!("detail.loading_files"))
             .halign(gtk::Align::Center)
             .justify(gtk::Justification::Center)
             .ellipsize(gtk::pango::EllipsizeMode::End)
@@ -488,7 +489,7 @@ impl ModDetailDrawer {
         self.widgets
             .download_button
             .add_css_class("suggested-action");
-        set_button_title(&self.widgets.download_button, "下载");
+        set_button_title(&self.widgets.download_button, &*tr!("detail.download"));
         sync_detail_action_heights(
             &self.widgets.download_button,
             &self.widgets.download_progress,
@@ -499,7 +500,7 @@ impl ModDetailDrawer {
         self.widgets.name_label.set_text(&card.name);
         self.widgets
             .author_label
-            .set_text(&format!("by {}", card.author));
+            .set_text(&format!("by {}", card.author).to_string());
 
         // Check download / install status
         let active_download =
@@ -525,7 +526,7 @@ impl ModDetailDrawer {
                 task.id,
             );
         } else if is_installed {
-            set_button_title(&self.widgets.download_button, "已安装");
+            set_button_title(&self.widgets.download_button, &*tr!("detail.installed"));
             self.widgets
                 .download_button
                 .remove_css_class("suggested-action");
@@ -537,7 +538,7 @@ impl ModDetailDrawer {
         } else {
             self.widgets
                 .download_file_label
-                .set_text("正在加载文件列表...");
+                .set_text(&*tr!("detail.loading_files"));
             self.widgets.download_button.set_sensitive(false);
             self.widgets.versions_button.set_sensitive(false);
         }
@@ -547,7 +548,7 @@ impl ModDetailDrawer {
             card.subcategory.as_deref(),
             card.is_r18,
         );
-        self.widgets.description_label.set_text("正在加载简介...");
+        self.widgets.description_label.set_text(&*tr!("detail.loading_description"));
         clear_versions_box(&self.widgets.versions_box);
         let gallery_urls = initial_gallery_urls(&card);
         *self.gallery_urls.borrow_mut() = gallery_urls;
@@ -555,9 +556,17 @@ impl ModDetailDrawer {
         preload_gallery_urls(&self.gallery_urls.borrow());
 
         let client = self.state.client.clone();
+        let cdn = self.state.get_cdn_client();
         let (tx, rx) = std::sync::mpsc::channel::<Result<ModDetail, String>>();
         std::thread::spawn(move || {
-            let result = client.get_mod(card.id).map_err(|err| err.to_string());
+            // Prefer CDN, fall back to direct GameBanana
+            let result = if let Some(cdn) = &cdn {
+                cdn.get_mod(card.id)
+                    .map_err(|e| e.to_string())
+                    .or_else(|_| client.get_mod(card.id).map_err(|e| e.to_string()))
+            } else {
+                client.get_mod(card.id).map_err(|e| e.to_string())
+            };
             let _ = tx.send(result);
         });
 
@@ -598,8 +607,8 @@ impl ModDetailDrawer {
             Ok(Err(_err)) => {
                 if *open_token.borrow() == token {
                     *current_detail.borrow_mut() = None;
-                    widgets.description_label.set_text("未能加载模组详情。");
-                    widgets.download_file_label.set_text("无法读取可下载文件。");
+                    widgets.description_label.set_text(&*tr!("detail.load_failed"));
+                    widgets.download_file_label.set_text(&*tr!("detail.load_files_failed"));
                 }
                 gtk::glib::ControlFlow::Break
             }
@@ -813,7 +822,7 @@ fn populate_detail(
 
     let description = html_to_plain_text(&detail.description);
     if description.trim().is_empty() {
-        widgets.description_label.set_text("暂无简介。");
+        widgets.description_label.set_text(&*tr!("detail.no_description"));
     } else {
         widgets.description_label.set_text(description.trim());
     }
@@ -869,7 +878,7 @@ fn populate_detail(
         } else if is_installed {
             set_detail_task_binding(&current_download_task_id, &progress_binding_token, None);
             widgets.download_stack.set_visible_child_name("button");
-            set_button_title(&widgets.download_button, "已安装");
+            set_button_title(&widgets.download_button, &*tr!("detail.installed"));
             widgets.download_button.remove_css_class("suggested-action");
             widgets.download_button.add_css_class("detail-installed");
             widgets.download_button.set_sensitive(false);
@@ -877,7 +886,7 @@ fn populate_detail(
         } else {
             set_detail_task_binding(&current_download_task_id, &progress_binding_token, None);
             widgets.download_stack.set_visible_child_name("button");
-            set_button_title(&widgets.download_button, "下载");
+            set_button_title(&widgets.download_button, &*tr!("detail.download"));
             widgets.download_button.add_css_class("suggested-action");
             widgets.download_button.remove_css_class("detail-installed");
             widgets.download_file_label.set_text(&file.filename);
@@ -886,7 +895,7 @@ fn populate_detail(
         }
     } else {
         set_detail_task_binding(&current_download_task_id, &progress_binding_token, None);
-        widgets.download_file_label.set_text("暂无可下载文件");
+        widgets.download_file_label.set_text(&*tr!("detail.no_files"));
         widgets.download_button.set_sensitive(false);
         widgets.versions_button.set_sensitive(false);
     }
@@ -941,7 +950,7 @@ fn rebuild_versions_list(
 
     if files.is_empty() {
         let empty = gtk::Label::builder()
-            .label("没有可下载文件")
+            .label(tr!("detail.no_version_files"))
             .halign(gtk::Align::Start)
             .css_classes(["dim-label"])
             .build();
@@ -1155,7 +1164,7 @@ fn detail_gallery_urls(detail: &ModDetail, card: &ModCard) -> Vec<String> {
             } else {
                 continue;
             };
-            urls.push(format!("{}/{}", image.base_url, file));
+            urls.push(format!("{}/{}", image.base_url, file).to_string());
         }
     }
 
@@ -1170,7 +1179,7 @@ fn render_gallery(widgets: &DetailWidgets, urls: &[String], page: usize) {
         widgets.gallery_empty_label.set_visible(true);
         widgets.gallery_prev_button.set_sensitive(false);
         widgets.gallery_next_button.set_sensitive(false);
-        widgets.gallery_counter_label.set_text("0 / 0");
+        widgets.gallery_counter_label.set_text(&*tr!("detail.gallery_counter", 0, 0));
         for tile in &widgets.gallery_tiles {
             tile.set_visible(false);
         }
@@ -1184,7 +1193,7 @@ fn render_gallery(widgets: &DetailWidgets, urls: &[String], page: usize) {
 
     widgets
         .gallery_counter_label
-        .set_text(&format!("{} / {}", clamped_page + 1, total_pages));
+        .set_text(&*tr!("detail.gallery_counter", clamped_page + 1, total_pages));
     widgets.gallery_prev_button.set_sensitive(clamped_page > 0);
     widgets
         .gallery_next_button
@@ -1271,7 +1280,7 @@ fn start_download(
         DownloadTaskPhase::Queued,
         0,
         &file.filename,
-        "等待下载",
+        &*tr!("detail.queued"),
     );
     if *open_token.borrow() == token {
         download_button.set_sensitive(false);
@@ -1371,7 +1380,7 @@ fn render_detail_task_controls(controls: &DetailDownloadControls, task: &Downloa
         }
         DownloadTaskPhase::Paused => {
             controls.download_stack.set_visible_child_name("button");
-            set_button_title(&controls.download_button, "继续下载");
+            set_button_title(&controls.download_button, &*tr!("detail.resume"));
             controls.download_file_label.set_text(&task.file_name);
             controls
                 .download_button
@@ -1399,7 +1408,7 @@ fn render_detail_task_controls(controls: &DetailDownloadControls, task: &Downloa
         }
         DownloadTaskPhase::Completed => {
             controls.download_stack.set_visible_child_name("button");
-            set_button_title(&controls.download_button, "已安装");
+            set_button_title(&controls.download_button, &*tr!("detail.installed"));
             controls.download_file_label.set_text(&task.file_name);
             controls
                 .download_button
@@ -1410,7 +1419,7 @@ fn render_detail_task_controls(controls: &DetailDownloadControls, task: &Downloa
         }
         DownloadTaskPhase::Failed => {
             controls.download_stack.set_visible_child_name("button");
-            set_button_title(&controls.download_button, "下载");
+            set_button_title(&controls.download_button, &*tr!("detail.download"));
             controls.download_file_label.set_text(&task.file_name);
             controls
                 .download_button
@@ -1522,9 +1531,9 @@ fn set_detail_progress_widgets(
 ) {
     progress_fraction.set((progress as f64 / 100.0).clamp(0.0, 1.0));
     progress_area.queue_draw();
-    progress_title.set_text(detail_progress_title(phase, status_text));
+    progress_title.set_text(&detail_progress_title(phase, status_text));
     progress_file_label.set_text(file_name);
-    progress_pct.set_text(&format!("{}%", progress));
+    progress_pct.set_text(&format!("{}%", progress).to_string());
 }
 
 fn sync_detail_action_heights(
@@ -1538,15 +1547,15 @@ fn sync_detail_action_heights(
     versions_button.set_height_request(target);
 }
 
-fn detail_progress_title(phase: DownloadTaskPhase, status_text: &str) -> &str {
+fn detail_progress_title(phase: DownloadTaskPhase, status_text: &str) -> String {
     match phase {
-        DownloadTaskPhase::Queued => "正在等待",
-        DownloadTaskPhase::Paused => "已暂停",
-        DownloadTaskPhase::Downloading if status_text == "复用已下载文件" => "校验文件",
-        DownloadTaskPhase::Downloading => "下载中",
-        DownloadTaskPhase::Installing => "正在安装",
-        DownloadTaskPhase::Completed => "已完成",
-        DownloadTaskPhase::Failed => "下载失败",
+        DownloadTaskPhase::Queued => tr!("detail.waiting"),
+        DownloadTaskPhase::Paused => tr!("detail.paused"),
+        DownloadTaskPhase::Downloading if status_text == tr!("download_task.reuse_archive") => tr!("detail.verifying"),
+        DownloadTaskPhase::Downloading => tr!("detail.downloading"),
+        DownloadTaskPhase::Installing => tr!("detail.installing"),
+        DownloadTaskPhase::Completed => tr!("detail.completed"),
+        DownloadTaskPhase::Failed => tr!("detail.failed"),
     }
 }
 
@@ -1635,7 +1644,7 @@ fn rounded_rect_path(
 
 fn relative_time(timestamp: i64) -> String {
     if timestamp <= 0 {
-        return "时间未知".to_string();
+        return tr!("detail.unknown_time");
     }
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -1650,17 +1659,17 @@ fn relative_time(timestamp: i64) -> String {
     const YEAR: i64 = 365 * DAY;
 
     if delta >= YEAR {
-        format!("{}年前", delta / YEAR)
+        tr!("detail.years_ago", delta / YEAR).to_string()
     } else if delta >= MONTH {
-        format!("{}个月前", delta / MONTH)
+        tr!("detail.months_ago", delta / MONTH).to_string()
     } else if delta >= DAY {
-        format!("{}天前", delta / DAY)
+        tr!("detail.days_ago", delta / DAY).to_string()
     } else if delta >= HOUR {
-        format!("{}小时前", delta / HOUR)
+        tr!("detail.hours_ago", delta / HOUR).to_string()
     } else if delta >= MINUTE {
-        format!("{}分钟前", delta / MINUTE)
+        tr!("detail.minutes_ago", delta / MINUTE).to_string()
     } else {
-        "刚刚".to_string()
+        tr!("detail.just_now")
     }
 }
 

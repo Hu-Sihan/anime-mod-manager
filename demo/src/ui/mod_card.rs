@@ -119,7 +119,7 @@ impl ModCardWidget {
         name.set_ellipsize(gtk::pango::EllipsizeMode::End);
         name.set_max_width_chars(18);
         txt.append(&name);
-        let author = gtk::Label::new(Some(&format!("by {}", card.author)));
+        let author = gtk::Label::new(Some(&format!("by {}", card.author).to_string()));
         author.set_css_classes(&["card-author"]);
         author.set_halign(gtk::Align::Start);
         txt.append(&author);

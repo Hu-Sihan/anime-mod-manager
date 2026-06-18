@@ -1,15 +1,19 @@
+use crate::tr;
 use std::cmp::Ordering;
 use std::fs;
 use std::io::{Cursor, Read};
 use std::path::{Component, Path, PathBuf};
+use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
 
 use adw::prelude::*;
 use anyhow::{anyhow, Context, Result};
 use gtk;
+use gtk::glib;
 
 use crate::config::{AppSettings, GimiRuntimeSettings, UI_LANGUAGE_OPTIONS};
+use crate::i18n::switch_language;
 
 use super::AppState;
 
@@ -62,6 +66,9 @@ pub struct SettingsPage {
     language_dropdown: gtk::DropDown,
     night_mode_switch: gtk::Switch,
     concurrent_downloads_spin: gtk::SpinButton,
+    cdn_url_entry: gtk::Entry,
+    cdn_test_btn: gtk::Button,
+    cdn_indicator: gtk::DrawingArea,
     runtime_state: Rc<std::cell::RefCell<RuntimeCardState>>,
     runtime_widgets: RuntimeWidgets,
 }
@@ -76,7 +83,7 @@ impl SettingsPage {
 
         container.append(
             &gtk::Label::builder()
-                .label("设置")
+                .label(tr!("settings.title"))
                 .css_classes(["title-3"])
                 .halign(gtk::Align::Start)
                 .margin_start(12)
@@ -104,31 +111,41 @@ impl SettingsPage {
 
         let runtime_state = Rc::new(std::cell::RefCell::new(RuntimeCardState::default()));
         let (runtime_card, runtime_widgets) = build_runtime_card();
-        let core_section = section_shell("Core");
+        let core_section = section_shell(&*tr!("settings.section_core"));
         core_section.append(&runtime_card);
         content_box.append(&core_section);
 
-        let ui_section = section_shell("UI");
+        let ui_section = section_shell(&*tr!("settings.section_ui"));
         let ui_card = card_box();
 
         let language_dropdown = gtk::DropDown::from_strings(UI_LANGUAGE_OPTIONS);
         ui_card.append(&build_widget_row(
-            "language",
-            "界面语言标识",
+            &*tr!("settings.language"),
+            &*tr!("settings.language_desc"),
             &language_dropdown,
         ));
+        {
+            let hint = gtk::Label::builder()
+                .label(tr!("settings.restart_hint"))
+                .halign(gtk::Align::Start)
+                .css_classes(["dim-label"])
+                .margin_start(14)
+                .margin_bottom(4)
+                .build();
+            ui_card.append(&hint);
+        }
         ui_card.append(&separator());
 
         let night_mode_switch = gtk::Switch::builder().valign(gtk::Align::Center).build();
         ui_card.append(&build_widget_row(
-            "night_mode",
-            "夜间模式开关",
+            &*tr!("settings.night_mode"),
+            &*tr!("settings.night_mode_desc"),
             &night_mode_switch,
         ));
         ui_section.append(&ui_card);
         content_box.append(&ui_section);
 
-        let network_section = section_shell("Network");
+        let network_section = section_shell(&*tr!("settings.section_network"));
         let network_card = card_box();
         let concurrent_downloads_spin = gtk::SpinButton::with_range(1.0, 16.0, 1.0);
         concurrent_downloads_spin.set_digits(0);
@@ -136,10 +153,68 @@ impl SettingsPage {
         concurrent_downloads_spin.set_width_chars(3);
         concurrent_downloads_spin.set_valign(gtk::Align::Center);
         network_card.append(&build_widget_row(
-            "concurrent_downloads",
-            "同时允许进行的下载任务数量",
+            &*tr!("settings.concurrent"),
+            &*tr!("settings.concurrent_desc"),
             &concurrent_downloads_spin,
         ));
+
+        // CDN row: label + entry + test button + indicator
+        let cdn_url_entry = gtk::Entry::builder()
+            .placeholder_text("https://gamebanana-cdn.dicat.workers.dev")
+            .hexpand(true)
+            .build();
+        let cdn_test_btn = gtk::Button::builder()
+            .label(tr!("settings.cdn_test"))
+            .valign(gtk::Align::Center)
+            .width_request(60)
+            .build();
+        let cdn_indicator = gtk::DrawingArea::builder()
+            .width_request(16)
+            .height_request(16)
+            .valign(gtk::Align::Center)
+            .build();
+        cdn_indicator.set_draw_func(|_area, cr, _w, _h| {
+            cr.set_source_rgb(0.5, 0.5, 0.5); // gray default
+            cr.arc(8.0, 8.0, 6.0, 0.0, std::f64::consts::TAU);
+            cr.fill().unwrap();
+        });
+
+        // Build custom CDN row
+        {
+            let cdn_row = gtk::Box::builder()
+                .orientation(gtk::Orientation::Horizontal)
+                .spacing(12)
+                .margin_start(14)
+                .margin_end(14)
+                .margin_top(10)
+                .margin_bottom(10)
+                .build();
+            let text_box = gtk::Box::builder()
+                .orientation(gtk::Orientation::Vertical)
+                .spacing(4)
+                .hexpand(true)
+                .build();
+            text_box.append(
+                &gtk::Label::builder()
+                    .label(tr!("settings.cdn_url"))
+                    .halign(gtk::Align::Start)
+                    .css_classes(["caption-heading"])
+                    .build(),
+            );
+            text_box.append(
+                &gtk::Label::builder()
+                    .label(tr!("settings.cdn_desc"))
+                    .halign(gtk::Align::Start)
+                    .css_classes(["dim-label"])
+                    .wrap(true)
+                    .build(),
+            );
+            cdn_row.append(&text_box);
+            cdn_row.append(&cdn_url_entry);
+            cdn_row.append(&cdn_test_btn);
+            cdn_row.append(&cdn_indicator);
+            network_card.append(&cdn_row);
+        }
         network_section.append(&network_card);
         content_box.append(&network_section);
 
@@ -149,6 +224,9 @@ impl SettingsPage {
             language_dropdown,
             night_mode_switch,
             concurrent_downloads_spin,
+            cdn_url_entry,
+            cdn_test_btn,
+            cdn_indicator,
             runtime_state,
             runtime_widgets,
         };
@@ -158,20 +236,31 @@ impl SettingsPage {
         page.language_dropdown.connect_selected_notify({
             let state = page.state.clone();
             move |dropdown| {
+                let locale = selected_language(dropdown);
                 {
-                    state.settings.borrow_mut().ui.language = selected_language(dropdown);
+                    state.settings.borrow_mut().ui.language = locale.clone();
                 }
                 state.persist_settings();
+                switch_language(&locale);
+                state.notify_language_changed();
             }
         });
 
         page.night_mode_switch.connect_active_notify({
             let state = page.state.clone();
             move |switch| {
+                let is_active = switch.is_active();
                 {
-                    state.settings.borrow_mut().ui.night_mode = switch.is_active();
+                    state.settings.borrow_mut().ui.night_mode = is_active;
                 }
                 state.persist_settings();
+                crate::apply_tag_light_theme(!is_active);
+                let sm = adw::StyleManager::default();
+                sm.set_color_scheme(if is_active {
+                    adw::ColorScheme::ForceDark
+                } else {
+                    adw::ColorScheme::Default
+                });
             }
         });
 
@@ -184,6 +273,57 @@ impl SettingsPage {
                 }
                 state.downloads.set_max_concurrent(&state, value as usize);
                 state.persist_settings();
+            }
+        });
+
+        // CDN test button
+        let indicator_for_test = page.cdn_indicator.clone();
+        let entry_for_test = page.cdn_url_entry.clone();
+        page.cdn_test_btn.connect_clicked(move |_| {
+            let url = entry_for_test.text().to_string();
+            let url = url.trim().to_string();
+            if url.is_empty() {
+                set_indicator_color(&indicator_for_test, 0.8, 0.2, 0.2); // red
+                return;
+            }
+            set_indicator_color(&indicator_for_test, 0.5, 0.5, 0.5);
+            let health_url = format!("{}/api/v1/health", url.trim_end_matches('/').to_string());
+            let (tx, rx) = std::sync::mpsc::channel();
+            std::thread::spawn(move || {
+                let ok = minreq::get(&health_url)
+                    .with_timeout(5)
+                    .send()
+                    .map(|r| r.status_code == 200)
+                    .unwrap_or(false);
+                let _ = tx.send(ok);
+            });
+            let rx = Rc::new(RefCell::new(rx));
+            let indicator = indicator_for_test.clone();
+            glib::timeout_add_local(Duration::from_millis(100), move || match rx.borrow_mut().try_recv() {
+                Ok(true) => {
+                    set_indicator_color(&indicator, 0.2, 0.8, 0.2);
+                    glib::ControlFlow::Break
+                }
+                Ok(false) => {
+                    set_indicator_color(&indicator, 0.8, 0.2, 0.2);
+                    glib::ControlFlow::Break
+                }
+                Err(_) => glib::ControlFlow::Continue,
+            });
+        });
+
+        // Reset indicator on URL change
+        let indicator_for_url_change = page.cdn_indicator.clone();
+        page.cdn_url_entry.connect_changed({
+            let state = page.state.clone();
+            move |entry| {
+                let url = entry.text().to_string();
+                let url = if url.trim().is_empty() { None } else { Some(url.trim().to_string()) };
+                {
+                    state.settings.borrow_mut().network.cdn_base_url = url;
+                }
+                state.persist_settings();
+                set_indicator_color(&indicator_for_url_change, 0.5, 0.5, 0.5); // reset to gray
             }
         });
 
@@ -234,7 +374,7 @@ impl SettingsPage {
                         Err(std::sync::mpsc::TryRecvError::Disconnected) => {
                             let mut card = runtime_state_poll.borrow_mut();
                             card.checking = false;
-                            card.last_check_error = Some("后台检查线程已断开".to_string());
+                            card.last_check_error = Some(tr!("runtime.thread_disconnected_check"));
                             render_runtime_widgets(&runtime_widgets_poll, &runtime_poll, &card);
                             gtk::glib::ControlFlow::Break
                         }
@@ -269,7 +409,7 @@ impl SettingsPage {
                     card.operation = Some(RuntimeOperation {
                         kind,
                         progress: 2,
-                        detail: "准备任务...".to_string(),
+                        detail: tr!("runtime.prepare_task"),
                     });
                     card.last_check_error = None;
                 }
@@ -356,7 +496,7 @@ impl SettingsPage {
                             {
                                 let mut card = runtime_state_poll.borrow_mut();
                                 card.operation = None;
-                                card.last_check_error = Some("后台安装线程已断开".to_string());
+                                card.last_check_error = Some(tr!("runtime.thread_disconnected_install"));
                                 refresh_local_runtime_state(&runtime_poll, &mut card);
                             }
                             render_runtime_widgets(
@@ -398,14 +538,29 @@ impl SettingsPage {
         self.night_mode_switch.set_active(settings.ui.night_mode);
         self.concurrent_downloads_spin
             .set_value(settings.network.concurrent_downloads.max(1) as f64);
+        self.cdn_url_entry
+            .set_text(settings.network.cdn_base_url.as_deref().unwrap_or(""));
+        set_indicator_color(&self.cdn_indicator, 0.5, 0.5, 0.5); // reset to gray
     }
+}
+
+fn set_indicator_color(area: &gtk::DrawingArea, r: f64, g: f64, b: f64) {
+    let r2 = r;
+    let g2 = g;
+    let b2 = b;
+    area.set_draw_func(move |_a, cr, _w, _h| {
+        cr.set_source_rgb(r2, g2, b2);
+        cr.arc(8.0, 8.0, 6.0, 0.0, std::f64::consts::TAU);
+        cr.fill().unwrap();
+    });
+    area.queue_draw();
 }
 
 fn build_runtime_card() -> (gtk::Box, RuntimeWidgets) {
     let card = card_box();
 
     let name_label = gtk::Label::builder()
-        .label("GIMI")
+        .label(tr!("runtime.name"))
         .halign(gtk::Align::Start)
         .css_classes(["runtime-name"])
         .build();
@@ -467,7 +622,7 @@ fn build_runtime_card() -> (gtk::Box, RuntimeWidgets) {
         .build();
     progress_row.append(
         &gtk::Label::builder()
-            .label("进度")
+            .label(tr!("runtime.progress"))
             .css_classes(["caption-heading"])
             .halign(gtk::Align::Start)
             .build(),
@@ -480,7 +635,7 @@ fn build_runtime_card() -> (gtk::Box, RuntimeWidgets) {
         .css_classes(["suggested-action"])
         .visible(false)
         .build();
-    let check_button = gtk::Button::builder().label("检查更新").build();
+    let check_button = gtk::Button::builder().label(tr!("runtime.check_update")).build();
 
     let actions_row = gtk::Box::builder()
         .orientation(gtk::Orientation::Horizontal)
@@ -530,11 +685,13 @@ fn render_runtime_widgets(
         widgets.name_label.add_css_class("runtime-name-missing");
     }
 
+    let not_installed = tr!("runtime.not_installed");
+    let unknown_version = tr!("runtime.unknown_version");
     widgets.current_version_label.set_text(
         match (card.is_installed, card.installed_version.as_deref()) {
-            (false, _) => "未安装",
+            (false, _) => &not_installed,
             (true, Some(version)) => version,
-            (true, None) => "未知版本",
+            (true, None) => &unknown_version,
         },
     );
 
@@ -556,10 +713,12 @@ fn render_runtime_widgets(
             .set_fraction((operation.progress as f64 / 100.0).clamp(0.0, 1.0));
         widgets
             .progress_label
-            .set_text(&format!("{}%", operation.progress));
+            .set_text(&format!("{}%", operation.progress).to_string());
+        let downloading = tr!("runtime.downloading");
+        let updating = tr!("runtime.updating");
         widgets.primary_button.set_label(match operation.kind {
-            RuntimeOperationKind::Download => "下载中",
-            RuntimeOperationKind::Update => "更新中",
+            RuntimeOperationKind::Download => &downloading,
+            RuntimeOperationKind::Update => &updating,
         });
         widgets.primary_button.set_visible(false);
         widgets.check_button.set_visible(false);
@@ -575,21 +734,23 @@ fn render_runtime_widgets(
     widgets.check_button.set_sensitive(!card.checking);
 
     if !card.is_installed {
-        widgets.primary_button.set_label("下载");
+        widgets.primary_button.set_label(&*tr!("runtime.download"));
         widgets.primary_button.set_visible(true);
         widgets.check_button.set_visible(false);
         return;
     }
 
     widgets.check_button.set_visible(true);
+    let checking = tr!("runtime.checking");
+    let check_update = tr!("runtime.check_update");
     widgets.check_button.set_label(if card.checking {
-        "检查中"
+        &checking
     } else {
-        "检查更新"
+        &check_update
     });
 
     if available_update.is_some() {
-        widgets.primary_button.set_label("更新");
+        widgets.primary_button.set_label(&*tr!("runtime.update"));
         widgets.primary_button.set_visible(true);
     } else {
         widgets.primary_button.set_visible(false);
@@ -627,23 +788,23 @@ fn available_update_tag(runtime: &GimiRuntimeSettings, card: &RuntimeCardState) 
 
 fn fetch_latest_release_tag(runtime: &GimiRuntimeSettings) -> Result<String> {
     let html = anime_mod_manager::download_bytes(&runtime.releases_url())
-        .map_err(|err| anyhow!("无法读取 GitHub release 页面: {err}"))?;
-    let body = String::from_utf8(html).context("GitHub release 页面不是有效 UTF-8")?;
+        .map_err(|err| anyhow!("{}", tr!("runtime.fetch_release_failed", err).to_string()))?;
+    let body = String::from_utf8(html).context(tr!("runtime.release_not_utf8"))?;
     let needle = format!(
         "/{}/{}/releases/tag/",
         runtime.github_repo_owner, runtime.github_repo_name
     );
     let start = body
         .find(&needle)
-        .ok_or_else(|| anyhow!("未能在 GitHub release 页面中定位 tag"))?;
+        .ok_or_else(|| anyhow!("{}", tr!("runtime.release_tag_not_found")))?;
     let rest = &body[start + needle.len()..];
     let end = rest
         .find('"')
         .or_else(|| rest.find('?'))
-        .ok_or_else(|| anyhow!("GitHub release 页面中的 tag 结构异常"))?;
+        .ok_or_else(|| anyhow!("{}", tr!("runtime.release_tag_malformed")))?;
     let tag = rest[..end].trim().to_string();
     if tag.is_empty() {
-        return Err(anyhow!("GitHub release 页面返回了空 tag"));
+        return Err(anyhow!("{}", tr!("runtime.release_tag_empty")));
     }
     Ok(tag)
 }
@@ -653,41 +814,38 @@ fn install_runtime_package(
     tag: &str,
     mut progress: impl FnMut(u8, String),
 ) -> Result<()> {
-    progress(4, "正在准备目录...".to_string());
+    progress(4, tr!("runtime.preparing_dir"));
     fs::create_dir_all(&runtime.importer_directory)
-        .with_context(|| format!("无法创建目录 {}", runtime.importer_directory.display()))?;
+        .with_context(|| tr!("runtime.create_dir_failed", runtime.importer_directory.display()))?;
     fs::create_dir_all(runtime.mods_directory())
-        .with_context(|| format!("无法创建目录 {}", runtime.mods_directory().display()))?;
+        .with_context(|| tr!("runtime.create_dir_failed", runtime.mods_directory().display()))?;
 
-    progress(8, "正在连接下载源...".to_string());
+    progress(8, tr!("runtime.connecting"));
     let archive_bytes =
         download_archive_with_progress(&runtime.tag_archive_url(tag), |download_percent| {
             let overall = 12 + (download_percent as u16 * 46 / 100) as u8;
             progress(
                 overall.min(58),
-                format!("正在下载 {tag} ... {}%", download_percent),
+                tr!("runtime.downloading_package", tag, download_percent).to_string(),
             );
         })?;
 
-    progress(58, "下载完成，正在清理旧 runtime ...".to_string());
+    progress(58, tr!("runtime.cleaning_old"));
     clear_managed_runtime_files(runtime)?;
 
-    progress(66, "开始解压 GIMI 文件...".to_string());
+    progress(66, tr!("runtime.extracting_archive"));
     extract_runtime_archive(runtime, &archive_bytes, |percent, detail| {
         progress(percent, detail);
     })?;
 
-    progress(97, "正在写入版本标记...".to_string());
+    progress(97, tr!("runtime.writing_marker"));
     fs::write(runtime.version_marker_path(), tag).with_context(|| {
-        format!(
-            "无法写入版本标记 {}",
-            runtime.version_marker_path().display()
-        )
+        tr!("runtime.write_marker_failed", runtime.version_marker_path().display())
     })?;
     fs::create_dir_all(runtime.mods_directory())
-        .with_context(|| format!("无法创建目录 {}", runtime.mods_directory().display()))?;
+        .with_context(|| tr!("runtime.create_dir_failed", runtime.mods_directory().display()))?;
 
-    progress(100, format!("{tag} 安装完成"));
+    progress(100, tr!("runtime.install_complete", tag).to_string());
     Ok(())
 }
 
@@ -699,10 +857,10 @@ fn download_archive_with_progress(url: &str, mut on_progress: impl FnMut(u8)) ->
         )
         .with_timeout(60)
         .send_lazy()
-        .map_err(|err| anyhow!("下载请求失败: {err}"))?;
+        .map_err(|err| anyhow!("{}", tr!("runtime.dl_request_failed", err).to_string()))?;
 
     if response.status_code != 200 {
-        return Err(anyhow!("下载请求返回 HTTP {}", response.status_code));
+        return Err(anyhow!("{}", tr!("runtime.dl_http_error", response.status_code).to_string()));
     }
 
     let total_size = response
@@ -724,7 +882,7 @@ fn download_archive_with_progress(url: &str, mut on_progress: impl FnMut(u8)) ->
     loop {
         let read = response
             .read(&mut buffer)
-            .map_err(|err| anyhow!("下载过程中读取失败: {err}"))?;
+            .map_err(|err| anyhow!("{}", tr!("runtime.dl_read_failed", err).to_string()))?;
         if read == 0 {
             break;
         }
@@ -753,14 +911,14 @@ fn clear_managed_runtime_files(runtime: &GimiRuntimeSettings) -> Result<()> {
         let path = runtime.importer_directory.join(relative);
         if path.exists() {
             fs::remove_dir_all(&path)
-                .with_context(|| format!("无法清理旧目录 {}", path.display()))?;
+                .with_context(|| tr!("runtime.clean_dir_failed", path.display()))?;
         }
     }
 
     let ini_path = runtime.importer_directory.join("d3dx.ini");
     if ini_path.exists() {
         fs::remove_file(&ini_path)
-            .with_context(|| format!("无法删除旧文件 {}", ini_path.display()))?;
+            .with_context(|| tr!("runtime.delete_file_failed", ini_path.display()))?;
     }
 
     Ok(())
@@ -772,13 +930,13 @@ fn extract_runtime_archive(
     mut progress: impl FnMut(u8, String),
 ) -> Result<()> {
     let cursor = Cursor::new(archive_bytes);
-    let mut archive = zip::ZipArchive::new(cursor).context("下载的压缩包不是有效 ZIP")?;
+    let mut archive = zip::ZipArchive::new(cursor).context(tr!("runtime.not_valid_zip"))?;
 
     let mut payload_entries = Vec::new();
     for index in 0..archive.len() {
         let entry = archive
             .by_index(index)
-            .with_context(|| format!("无法读取压缩包条目 #{index}"))?;
+            .with_context(|| tr!("runtime.read_entry_failed", index).to_string())?;
         if let Some(relative) = runtime_payload_relative_path(&entry.mangled_name()) {
             if !relative.as_os_str().is_empty() {
                 payload_entries.push((index, relative, entry.is_dir()));
@@ -787,7 +945,7 @@ fn extract_runtime_archive(
     }
 
     if payload_entries.is_empty() {
-        return Err(anyhow!("压缩包里没有找到 GIMI 运行时文件"));
+        return Err(anyhow!("{}", tr!("runtime.no_runtime_files")));
     }
 
     let total_bytes = payload_entries
@@ -799,7 +957,7 @@ fn extract_runtime_archive(
             }
             let entry = archive
                 .by_index(*index)
-                .with_context(|| format!("无法读取压缩包条目 #{index}"))?;
+                .with_context(|| tr!("runtime.read_entry_failed", index).to_string())?;
             Ok::<u64, anyhow::Error>(acc.saturating_add(entry.size()))
         })?
         .max(1);
@@ -810,27 +968,27 @@ fn extract_runtime_archive(
     for (index, relative, is_dir) in payload_entries {
         let mut entry = archive
             .by_index(index)
-            .with_context(|| format!("无法重新读取压缩包条目 #{index}"))?;
+            .with_context(|| tr!("runtime.reread_entry_failed", index).to_string())?;
         let target_path = runtime.importer_directory.join(&relative);
 
         if is_dir {
             fs::create_dir_all(&target_path)
-                .with_context(|| format!("无法创建目录 {}", target_path.display()))?;
+                .with_context(|| tr!("runtime.create_dir_failed", target_path.display()))?;
             continue;
         }
 
         if let Some(parent) = target_path.parent() {
             fs::create_dir_all(parent)
-                .with_context(|| format!("无法创建目录 {}", parent.display()))?;
+                .with_context(|| tr!("runtime.create_dir_failed", parent.display()))?;
         }
 
         let mut output = fs::File::create(&target_path)
-            .with_context(|| format!("无法写入文件 {}", target_path.display()))?;
+            .with_context(|| tr!("runtime.write_file_failed", target_path.display()))?;
 
         loop {
             let read = entry
                 .read(&mut buffer)
-                .with_context(|| format!("无法读取压缩包文件 {}", relative.display()))?;
+                .with_context(|| tr!("runtime.read_archive_file_failed", relative.display()))?;
             if read == 0 {
                 break;
             }
@@ -838,14 +996,14 @@ fn extract_runtime_archive(
             use std::io::Write;
             output
                 .write_all(&buffer[..read])
-                .with_context(|| format!("无法解压文件 {}", target_path.display()))?;
+                .with_context(|| tr!("runtime.extract_file_failed", target_path.display()))?;
 
             processed_bytes = processed_bytes.saturating_add(read as u64);
             let percent = 66 + ((processed_bytes.saturating_mul(29)) / total_bytes) as u8;
             let percent = percent.min(95);
             if percent > last_percent {
                 last_percent = percent;
-                progress(percent, format!("正在解压 {}", relative.display()));
+                progress(percent, tr!("runtime.extracting_file", relative.display()));
             }
         }
     }
@@ -879,7 +1037,7 @@ fn read_installed_version(runtime: &GimiRuntimeSettings) -> Result<Option<String
     }
 
     let version = fs::read_to_string(&version_path)
-        .with_context(|| format!("无法读取版本标记 {}", version_path.display()))?
+        .with_context(|| tr!("runtime.read_marker_failed", version_path.display()))?
         .trim()
         .to_string();
 

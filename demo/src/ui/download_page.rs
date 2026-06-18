@@ -1,3 +1,4 @@
+use crate::tr;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet};
 use std::path::Path;
@@ -31,7 +32,7 @@ impl DownloadPage {
             .build();
 
         let title = gtk::Label::builder()
-            .label("下载队列")
+            .label(tr!("download.title"))
             .css_classes(["title-3"])
             .halign(gtk::Align::Start)
             .hexpand(true)
@@ -59,7 +60,7 @@ impl DownloadPage {
             .build();
         scrolled.set_propagate_natural_height(false);
         let empty_label = gtk::Label::builder()
-            .label("暂无下载任务")
+            .label(tr!("download.empty"))
             .css_classes(["caption", "dim-label"])
             .halign(gtk::Align::Start)
             .build();
@@ -327,7 +328,7 @@ impl DownloadCardView {
         let detail_text = if task.status_text.is_empty() {
             task.file_name.clone()
         } else {
-            format!("{} · {}", task.file_name, task.status_text)
+            format!("{} · {}", task.file_name, task.status_text).to_string()
         };
         self.version.set_text(&detail_text);
         self.percent
@@ -336,7 +337,7 @@ impl DownloadCardView {
             && !matches!(task.status_code, DownloadTaskStatusCode::Removed)
         {
             self.status_stack.set_visible_child_name("paused");
-            self.paused_icon.set_tooltip_text(Some("已暂停，点击继续"));
+            self.paused_icon.set_tooltip_text(Some(&*tr!("download.paused_hint")));
         } else {
             self.status_stack.set_visible_child_name("text");
             self.paused_icon.set_tooltip_text(None);
@@ -486,7 +487,7 @@ fn percent_text(
             _ => "暂停".to_string(),
         },
         DownloadTaskPhase::Downloading | DownloadTaskPhase::Installing => {
-            format!("{}%", progress)
+            format!("{}%", progress).to_string()
         }
         DownloadTaskPhase::Completed => "完成".to_string(),
         DownloadTaskPhase::Failed => "失败".to_string(),

@@ -216,17 +216,24 @@ pub struct ModCard {
     pub name: String,
     pub author: String,
     pub category: String,
+    #[serde(default)]
     pub subcategory: Option<String>,
+    #[serde(default)]
     pub likes: u32,
+    #[serde(default)]
     pub views: u32,
     pub date_added: i64,
     #[serde(default)]
     pub date_modified: i64,
     #[serde(default)]
     pub local_cover_path: Option<String>,
+    #[serde(default)]
     pub thumbnail_url: Option<String>,
+    #[serde(default)]
     pub cover_url: Option<String>,
+    #[serde(default)]
     pub is_r18: bool,
+    #[serde(default)]
     pub has_files: bool,
     pub profile_url: String,
 }
@@ -258,8 +265,8 @@ impl From<ModRecord> for ModCard {
     fn from(r: ModRecord) -> Self {
         let thumbnail = r.preview_media.as_ref().and_then(|m| {
             m.images.first().map(|img| {
-                if !img.file_530.is_empty() {
-                    format!("{}/{}", img.base_url, img.file_530)
+                if !img.file_220.is_empty() {
+                    format!("{}/{}", img.base_url, img.file_220)
                 } else {
                     format!("{}/{}", img.base_url, img.file)
                 }

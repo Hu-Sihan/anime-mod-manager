@@ -1,3 +1,4 @@
+use crate::tr;
 use std::cell::{Cell, RefCell};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::Path;
@@ -128,7 +129,7 @@ impl DownloadQueue {
                 task.progress = 0;
                 task.phase = DownloadTaskPhase::Queued;
                 task.status_code = DownloadTaskStatusCode::Queued;
-                task.status_text = "等待下载".to_string();
+                task.status_text = tr!("download_task.queued");
                 let id = task.id;
                 drop(tasks);
                 self.notify();
@@ -148,7 +149,7 @@ impl DownloadQueue {
             progress: 0,
             phase: DownloadTaskPhase::Queued,
             status_code: DownloadTaskStatusCode::Queued,
-            status_text: "等待下载".to_string(),
+            status_text: tr!("download_task.queued"),
         });
         self.notify();
         id
@@ -280,7 +281,7 @@ impl DownloadScheduler {
             DownloadTaskPhase::Paused,
             progress,
             DownloadTaskStatusCode::Paused,
-            "已暂停",
+            tr!("download_task.paused"),
             None,
         );
     }
@@ -596,7 +597,7 @@ impl DownloadScheduler {
             DownloadTaskPhase::Queued,
             queued_progress,
             DownloadTaskStatusCode::Queued,
-            "等待下载",
+            tr!("download_task.queued"),
             None,
         );
         self.drive(state);
@@ -793,7 +794,7 @@ impl DownloadScheduler {
                             status.progress,
                             DownloadTaskStatusCode::Failed,
                             if status.status_text.is_empty() {
-                                "下载线程已断开".to_string()
+                                tr!("download_task.thread_disconnected")
                             } else {
                                 status.status_text
                             },
@@ -991,7 +992,7 @@ impl DownloadScheduler {
                         task_id,
                         request.clone(),
                         0,
-                        "检测到文件不完整，正在重新下载".to_string(),
+                        tr!("download_task.incomplete_retry"),
                     );
                     true
                 } else {
@@ -1006,7 +1007,7 @@ impl DownloadScheduler {
                         task_id,
                         request.clone(),
                         0,
-                        "文件不存在，正在重新下载".to_string(),
+                        tr!("download_task.not_found_retry"),
                     );
                     true
                 } else {
@@ -1022,15 +1023,15 @@ impl DownloadScheduler {
                         task_id,
                         request.clone(),
                         update.progress,
-                        format!("网络异常，重新连接 {attempt}/3"),
+                        tr!("download_task.network_retry", attempt),
                     );
                     true
                 } else {
-                    let final_message = format!("网络环境异常，已重试 3 次");
+                    let final_message = tr!("download_task.network_exhausted");
                     let debug_detail = if update.status_text.is_empty() {
                         final_message.clone()
                     } else {
-                        format!("{final_message}：{}", update.status_text)
+                        format!("{final_message}：{}", update.status_text).to_string()
                     };
                     let _ = state.manager.mark_download_failed(
                         folder_name,
@@ -1057,7 +1058,7 @@ impl DownloadScheduler {
                         task_id,
                         request.clone(),
                         0,
-                        "检测到续传范围异常，正在重新下载".to_string(),
+                        tr!("download_task.range_invalid_retry"),
                     );
                     true
                 } else {

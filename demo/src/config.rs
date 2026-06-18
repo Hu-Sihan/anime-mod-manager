@@ -86,7 +86,7 @@ impl Default for NetworkSettings {
     fn default() -> Self {
         Self {
             concurrent_downloads: 3,
-            cdn_base_url: Some("https://gamebanana-cdn.dicat.workers.dev".into()),
+            cdn_base_url: None,
         }
     }
 }
